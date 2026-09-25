@@ -4,6 +4,17 @@ Klimatyczna gra przeglądarkowa o prowadzeniu łodzi podwodnej Kestrel-7 przez s
 ciemne głębiny i precyzyjne manewry dokowania. Cała gra to **jeden plik `index.html`**
 (HTML + CSS + vanilla JS, canvas 2D, WebAudio) — zero zależności, zero builda.
 
+**▶ Zagraj online: https://trochim86.github.io/blackwater-dock/**
+
+![Ekran DIVE — sonar z falą echo-pulse, kontakty i profil głębokości](docs/screenshots/dive-sonar.png)
+
+<details>
+<summary>Więcej zrzutów</summary>
+
+![Ekran VESSEL — przekrój techniczny Kestrel-7 i systemy pokładowe](docs/screenshots/vessel.png)
+
+</details>
+
 ## Szybki start
 
 ```bash
