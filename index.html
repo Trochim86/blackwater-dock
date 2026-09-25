@@ -1,0 +1,3928 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>BLACKWATER DOCK</title>
+<style>
+  :root{
+    --bg:#060c10;
+    --panel:#0a1319;
+    --panel2:#0d1820;
+    --line:#16242e;
+    --line2:#1d3240;
+    --cyan:#59d6e2;
+    --cyan-dim:#2d7f8c;
+    --cyan-faint:#153843;
+    --text:#c8dbe2;
+    --muted:#5f7d89;
+    --orange:#ff6a3c;
+    --amber:#e8a33c;
+    --green:#3ecf8e;
+    --red:#ff4b4b;
+    --font:'Barlow Condensed','Arial Narrow',Arial,sans-serif;
+    /* Dwa rejestry pisma. Sans = przyrząd (odczyt na żywo, przyciski, nawigacja).
+       Szeryf = kreślarstwo (opisy na planszach, metryczki, tabele) — tak jak na
+       planszach Admiralicji, gdzie cały arkusz opisany jest jedną ręką.
+       Systemowy, więc nie łamie zasady zero zależności. */
+    --serif:Georgia,'Times New Roman',Times,serif;
+    --mono:'Consolas','DejaVu Sans Mono','Menlo',monospace;
+  }
+  *{margin:0;padding:0;box-sizing:border-box}
+  html,body{height:100%}
+  body{
+    background:var(--bg);color:var(--text);
+    font-family:var(--font);letter-spacing:.06em;
+    overflow:hidden;user-select:none;
+  }
+  /* ---------- TOP NAV ---------- */
+  #topnav{
+    display:flex;align-items:stretch;height:56px;
+    border-bottom:1px solid var(--line);background:#070e13;
+  }
+  #topnav .brand{
+    display:flex;align-items:center;padding:0 22px;
+    font-size:20px;font-weight:700;letter-spacing:.12em;color:#e8f3f6;
+  }
+  .navtab{
+    display:flex;align-items:center;padding:0 26px;cursor:pointer;
+    font-size:16px;font-weight:600;color:var(--muted);
+    border-left:1px solid var(--line);position:relative;
+  }
+  .navtab:hover{color:var(--text)}
+  .navtab.active{color:#eaf6f9}
+  .navtab.active::after{
+    content:'';position:absolute;left:14px;right:14px;bottom:0;height:2px;background:var(--cyan);
+  }
+  #topnav .spacer{flex:1}
+  #topnav .gear{display:flex;align-items:center;padding:0 18px;color:var(--muted);font-size:18px;
+    cursor:pointer;border-left:1px solid var(--line)}
+  #topnav .gear:hover{color:var(--cyan)}
+  #topnav .gear:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+  /* ---------- HUD ---------- */
+  #hud{
+    display:flex;height:76px;border-bottom:1px solid var(--line);background:#081015;
+  }
+  .hudcell{
+    flex:1;padding:10px 18px;border-right:1px solid var(--line);
+    display:flex;flex-direction:column;justify-content:center;gap:2px;
+  }
+  .hudcell .lbl{font-size:12px;color:var(--muted);letter-spacing:.18em}
+  .hudcell .val{font-size:26px;font-weight:700;color:#eaf6f9;display:flex;align-items:center;gap:10px}
+  .pips{display:flex;gap:3px}
+  .pip{width:9px;height:12px;background:#122029}
+  .pip.on{background:var(--cyan)}
+  .pip.on.warn{background:var(--amber)}
+  .pip.on.bad{background:var(--orange)}
+  .hudcell.alert{flex:1.2;border-right:none}
+  .hudcell.alert .val{font-size:20px}
+  .warn-tri{color:var(--orange);font-size:22px}
+  .sev{color:var(--orange);font-weight:700}
+  .sev.mod{color:var(--amber)}
+  .sev.calm{color:var(--green)}
+  /* depth is the number that kills you — it gets the weight */
+  .hudcell.primary{flex:1.15;padding-left:20px}
+  .hudcell.primary .val{
+    font-family:var(--mono);font-size:34px;font-weight:700;line-height:1;
+    letter-spacing:-.01em;color:#f2fbfd;
+  }
+  .hudcell.primary .val u{font-family:var(--font);font-size:17px;font-weight:600;color:var(--muted);
+    text-decoration:none;letter-spacing:.1em;margin-left:2px}
+  .hudcell .sub{font-size:12px;color:var(--muted);letter-spacing:.14em;margin-top:3px}
+  .hudcell .sub b{font-family:var(--mono);font-size:12px;font-weight:700;color:var(--cyan)}
+  .hudcell .sub b.warn{color:var(--amber)}
+  .hudcell .sub b.bad{color:var(--orange)}
+  /* bearing + speed share one cell — they're read together */
+  .hudcell.nav{flex:1.25;flex-direction:row;align-items:center;gap:26px}
+  .hudcell.nav .navitem{display:flex;flex-direction:column;gap:2px}
+  .hudcell.nav .val{font-family:var(--mono);font-size:21px}
+  .hudcell.gauge .val{font-family:var(--mono);font-size:22px}
+  /* ---------- LAYOUT ---------- */
+  .screen{display:none;height:calc(100vh - 132px);overflow:hidden}
+  .screen.active{display:flex}
+  #screen-dive{flex-direction:column}
+  #dive-main{flex:1;display:flex;min-height:0}
+  #sonar-wrap{
+    flex:1;position:relative;margin:14px 0 0 14px;border:1px solid var(--line2);
+    background:#050b0f;min-width:0;
+  }
+  #sonar{position:absolute;inset:0;width:100%;height:100%}
+  #sonar-conf{
+    position:absolute;top:12px;left:14px;font-size:13px;color:var(--muted);letter-spacing:.15em;
+  }
+  #sonar-conf b{color:var(--text)}
+  #sonar-conf .pips{margin-top:5px}
+  /* ---------- RIGHT PANEL ---------- */
+  #controls{
+    width:300px;margin:14px 14px 0 14px;display:flex;flex-direction:column;gap:14px;
+    overflow-y:auto;padding-bottom:8px;
+  }
+  .ctl{border:1px solid var(--line);background:var(--panel);padding:12px 14px}
+  .ctl h3{font-size:13px;color:var(--text);letter-spacing:.18em;font-weight:600;margin-bottom:10px}
+  .throttle-row{display:flex;align-items:center;gap:8px}
+  .sq-btn{
+    width:38px;height:34px;border:1px solid var(--line2);background:#0c1820;color:var(--cyan);
+    font-size:18px;cursor:pointer;font-family:var(--font);
+  }
+  .sq-btn:hover{background:var(--cyan-faint)}
+  .bar-track{flex:1;display:flex;gap:3px;height:22px;align-items:center}
+  .bar-seg{flex:1;height:14px;background:#122029}
+  .bar-seg.on{background:var(--cyan-dim)}
+  .bar-seg.cur{background:var(--cyan);height:22px}
+  .ctl .readout{text-align:center;font-size:15px;color:var(--text);margin-top:8px}
+  .key-hint{color:var(--muted);font-size:11px;letter-spacing:.1em;text-align:center;margin-top:4px}
+  /* heading tape */
+  #hdg-tape{flex:1;height:40px;position:relative;overflow:hidden;border:1px solid var(--line);background:#0a141b}
+  #hdg-canvas{position:absolute;inset:0;width:100%;height:100%}
+  /* ballast */
+  .ballast-lbls{display:flex;justify-content:space-between;font-size:12px;color:var(--muted);margin-bottom:6px}
+  .ballast-lbls b{color:var(--text)}
+  input[type=range]{
+    -webkit-appearance:none;width:100%;height:10px;background:#122029;outline:none;cursor:pointer;
+  }
+  input[type=range]::-webkit-slider-thumb{
+    -webkit-appearance:none;width:16px;height:22px;background:var(--cyan);cursor:pointer;border:none;
+  }
+  input[type=range]::-moz-range-thumb{width:16px;height:22px;background:var(--cyan);cursor:pointer;border:none;border-radius:0}
+  /* silent running */
+  .seg3{display:flex}
+  .seg3 button{
+    flex:1;padding:9px 0;background:#0b151c;border:1px solid var(--line2);color:var(--muted);
+    font-family:var(--font);font-size:13px;letter-spacing:.12em;cursor:pointer;
+  }
+  .seg3 button.active{background:var(--cyan-faint);color:var(--cyan);border-color:var(--cyan-dim)}
+  /* emergency */
+  .ctl.emerg h3{color:var(--orange)}
+  #btn-pitch{
+    width:100%;padding:13px 0;background:rgba(255,106,60,.06);border:1px solid var(--orange);
+    color:var(--orange);font-family:var(--font);font-size:16px;font-weight:700;letter-spacing:.14em;cursor:pointer;
+  }
+  #btn-pitch:hover{background:rgba(255,106,60,.16)}
+  /* ---------- BOTTOM BAR ---------- */
+  #bottombar{
+    height:96px;border-top:1px solid var(--line);margin-top:14px;display:flex;background:#081015;
+  }
+  .bcell{flex:1;padding:12px 20px;border-right:1px solid var(--line);display:flex;flex-direction:column;justify-content:center;gap:6px}
+  .bcell:last-child{border-right:none}
+  #wp-title{font-size:16px;font-weight:700;color:#eaf6f9}
+  #wp-title span{color:var(--muted);font-weight:400}
+  .wp-dots{display:flex;align-items:center;gap:0}
+  .wp-dot{width:12px;height:12px;border:2px solid var(--cyan-dim);border-radius:50%;background:transparent}
+  .wp-dot.done{background:var(--cyan);border-color:var(--cyan)}
+  .wp-line{width:34px;height:2px;background:var(--cyan-faint)}
+  .wp-sub{font-size:12px;color:var(--muted);letter-spacing:.15em}
+  #storm-title{font-size:17px;font-weight:700;color:var(--orange)}
+  #storm-stats{font-size:13px;color:var(--text)}
+  #storm-stats span{color:var(--muted)}
+  #storm-bar{display:flex;gap:3px;margin-top:2px}
+  #storm-bar .pip{width:14px;height:10px}
+  #storm-bar .pip.on{background:var(--orange)}
+  #decision-q{font-size:17px;font-weight:700;color:#eaf6f9;display:flex;gap:10px;align-items:center}
+  #decision-q .qmark{
+    width:26px;height:26px;border:2px solid var(--cyan-dim);border-radius:50%;color:var(--cyan);
+    display:inline-flex;align-items:center;justify-content:center;font-size:15px;flex:none;
+  }
+  .dec-btns{display:flex;gap:10px}
+  .dec-btn{
+    flex:1;display:flex;align-items:center;gap:10px;padding:8px 12px;cursor:pointer;
+    border:1px solid var(--line2);background:#0b151c;color:var(--text);font-family:var(--font);
+    font-size:15px;letter-spacing:.1em;
+  }
+  .dec-btn:hover{background:var(--cyan-faint)}
+  .dec-btn .kb{
+    width:26px;height:24px;border:1px solid var(--cyan-dim);color:var(--cyan);
+    display:inline-flex;align-items:center;justify-content:center;font-size:13px;flex:none;
+  }
+  /* ---------- MISSIONS ---------- */
+  #screen-missions{flex-direction:column;overflow-y:auto;padding:20px 24px}
+  /* the screen scrolls; nothing in it may be squeezed by flex-shrink
+     (the mission map has no intrinsic content and collapses to 0 otherwise) */
+  #screen-missions > *{flex:none}
+  .mhead{display:flex;align-items:flex-start;justify-content:space-between;margin-bottom:8px}
+  .mhead h1{font-family:var(--serif);font-size:31px;font-weight:400;letter-spacing:.14em;color:#eef8fa}
+  .mhead .msub{font-size:14px;color:var(--muted);letter-spacing:.15em;margin-top:4px}
+  .mhead .msub b{color:var(--cyan);font-weight:600}
+  #btn-launch{
+    padding:14px 26px;background:var(--cyan-faint);border:1px solid var(--cyan-dim);color:#dff5f8;
+    font-family:var(--font);font-size:16px;font-weight:700;letter-spacing:.12em;cursor:pointer;
+  }
+  #btn-launch:hover{background:#1d4b58}
+  #mission-map-wrap{border:1px solid var(--line2);background:#050b0f;height:270px;position:relative;margin:12px 0}
+  #mission-map{position:absolute;inset:0;width:100%;height:100%}
+  .mfoot{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--muted);
+    letter-spacing:.02em;padding:11px 4px;display:flex;justify-content:space-between;gap:20px}
+  .mfoot .rev{font-style:normal;letter-spacing:.1em;color:#456a78;white-space:nowrap}
+  /* ---------- LOGBOOK ---------- */
+  #screen-logbook{flex-direction:column;overflow-y:auto;padding:18px 22px;gap:14px}
+  .lb-row{display:flex;gap:14px}
+  .lb-card{border:1px solid var(--line);background:var(--panel);padding:14px 18px}
+  .lb-stat{flex:1;display:flex;flex-direction:column;gap:4px}
+  .lb-stat .lbl{font-size:11px;color:var(--muted);letter-spacing:.18em}
+  .lb-stat .val{font-family:var(--serif);font-size:25px;font-weight:400;color:#eaf6f9;letter-spacing:.04em}
+  .lb-stat .val small{font-size:13px;color:var(--muted);font-weight:400}
+  #lb-vessel{display:flex;gap:16px;align-items:center;flex:1.6}
+  #lb-vessel .icon{font-size:26px;color:var(--cyan)}
+  #lb-vessel .nm{font-size:20px;font-weight:800;color:#eef8fa}
+  #lb-vessel .ds{font-size:12px;color:var(--muted);letter-spacing:.12em}
+  .lb-best{flex:1}
+  .lb-best .bt{font-family:var(--serif);font-size:14px;color:var(--cyan);letter-spacing:.12em;margin-bottom:6px}
+  .lb-best .big{font-size:40px;font-weight:400;color:#eef8fa;font-family:var(--serif);letter-spacing:.03em}
+  .lb-best .ctx{font-family:var(--serif);font-style:italic;font-size:13px;color:var(--muted);letter-spacing:.02em}
+  .badge{
+    display:inline-flex;align-items:center;gap:8px;margin-top:10px;padding:6px 12px;
+    border:1px solid var(--amber);color:var(--amber);font-size:13px;letter-spacing:.12em;
+  }
+  .lb-dives{flex:1.6}
+  .lb-dives h3,.lb-best h3{font-family:var(--serif);font-size:13px;color:var(--text);letter-spacing:.16em;margin-bottom:10px}
+  .dive-table{width:100%;border-collapse:collapse;font-family:var(--serif);font-size:14px}
+  .dive-table th{text-align:left;font-size:11px;color:var(--muted);letter-spacing:.14em;
+    padding:6px 10px;border-bottom:1px solid var(--line2)}
+  .dive-table td{padding:8px 10px;border-bottom:1px solid var(--line)}
+  /* liniowanie pionowe — rejestr czyta się kolumnami, nie wierszami */
+  .dive-table th+th,.dive-table td+td{border-left:1px solid #142430}
+  .lb-foot{font-family:var(--serif);font-size:11px;color:#456a78;letter-spacing:.1em;
+    padding:10px 4px 0;text-align:right}
+  .oc-Docked{color:var(--cyan)} .oc-Aborted{color:var(--orange)} .oc-NearMiss{color:var(--amber)}
+  .lb-note{font-size:12px;color:var(--green);padding:6px 8px}
+  /* ---------- DOCK APPROACH ---------- */
+  #screen-dock{flex-direction:column}
+  #dock-head{display:flex;align-items:center;gap:20px;padding:14px 20px;border-bottom:1px solid var(--line)}
+  #dock-head .back{color:var(--cyan);cursor:pointer;font-size:14px;letter-spacing:.12em}
+  #dock-head .ttl{font-size:20px;font-weight:800;color:#eef8fa;letter-spacing:.1em}
+  #dock-head .ttl span{color:var(--muted);font-weight:400}
+  #dock-main{flex:1;display:flex;min-height:0}
+  #dockview-wrap{flex:1;position:relative;margin:14px;border:1px solid var(--line2);background:#050b0f}
+  #dockview{position:absolute;inset:0;width:100%;height:100%}
+  #dock-info{
+    position:absolute;top:16px;left:18px;font-size:14px;letter-spacing:.12em;color:var(--muted);line-height:1.8;
+  }
+  #dock-info .t{font-size:20px;font-weight:800;color:var(--cyan);letter-spacing:.1em}
+  #dock-info b{color:#eaf6f9;font-weight:600}
+  #dock-side{width:320px;margin:14px 14px 14px 0;display:flex;flex-direction:column;gap:14px;overflow-y:auto}
+  .chk{display:flex;align-items:center;gap:12px;padding:10px 0;border-bottom:1px solid var(--line);font-size:15px}
+  .chk:last-child{border-bottom:none}
+  .chk .ic{
+    width:24px;height:24px;border-radius:50%;flex:none;display:inline-flex;align-items:center;justify-content:center;
+    border:2px solid var(--cyan-dim);color:var(--cyan);font-size:12px;
+  }
+  .chk.done .ic{background:var(--cyan);border-color:var(--cyan);color:#04252b}
+  .chk.done{color:var(--text)} .chk.todo{color:var(--cyan)}
+  #evlog{font-size:13px;line-height:2}
+  #evlog .tm{color:var(--cyan);font-family:var(--mono);font-size:12px;margin-right:8px}
+  #dock-actions{height:92px;border-top:1px solid var(--line);display:flex;gap:14px;align-items:center;padding:0 20px;background:#081015}
+  .dock-btn{
+    flex:1;display:flex;align-items:center;gap:14px;padding:14px 18px;cursor:pointer;
+    background:#0b151c;border:1px solid var(--line2);color:var(--text);font-family:var(--font);
+  }
+  .dock-btn .b1{font-size:17px;font-weight:700;letter-spacing:.1em;text-align:left}
+  .dock-btn .b2{font-size:12px;color:var(--muted);letter-spacing:.1em;text-align:left}
+  .dock-btn.primary{border-color:var(--cyan-dim);background:#0c1f27}
+  .dock-btn.primary:hover{background:#123039}
+  .dock-btn.gold{border-color:var(--amber);background:rgba(232,163,60,.05)}
+  .dock-btn.gold:hover{background:rgba(232,163,60,.14)}
+  .dock-btn.gold .b1{color:var(--amber)}
+  .dock-btn.abort:hover{background:#1a1113;border-color:var(--orange)}
+  /* ---------- OVERLAYS ---------- */
+  #overlay{
+    position:fixed;inset:0;background:rgba(3,8,11,.82);display:none;
+    align-items:center;justify-content:center;z-index:50;
+  }
+  #overlay.show{display:flex}
+  #overlay .panel{
+    width:520px;border:1px solid var(--line2);background:#0a141b;padding:36px 40px;text-align:center;
+  }
+  #ov-title{font-size:30px;font-weight:800;letter-spacing:.12em;color:#eef8fa;margin-bottom:8px}
+  #ov-title.good{color:var(--cyan)} #ov-title.bad{color:var(--orange)}
+  #ov-sub{font-size:15px;color:var(--muted);letter-spacing:.08em;line-height:1.7;margin-bottom:22px}
+  #ov-stats{display:flex;justify-content:center;gap:34px;margin-bottom:26px}
+  #ov-stats .s .v{font-size:24px;font-weight:700;color:#eaf6f9;font-family:var(--mono)}
+  #ov-stats .s .l{font-size:11px;color:var(--muted);letter-spacing:.18em;margin-top:4px}
+  .ov-btns{display:flex;gap:12px;justify-content:center}
+  .ov-btn{
+    padding:13px 26px;background:var(--cyan-faint);border:1px solid var(--cyan-dim);color:#dff5f8;
+    font-family:var(--font);font-size:15px;font-weight:700;letter-spacing:.12em;cursor:pointer;
+  }
+  .ov-btn:hover{background:#1d4b58}
+  .ov-btn.ghost{background:transparent;border-color:var(--line2);color:var(--muted)}
+  .ov-badge{display:inline-flex;align-items:center;gap:8px;margin-bottom:20px;padding:7px 14px;border:1px solid var(--amber);color:var(--amber);font-size:14px;letter-spacing:.14em}
+  /* toast */
+  /* Był przypięty na top:150px i wchodził na nagłówki MISSIONS, VESSEL i LOGBOOK.
+     Na dole nie zasłania niczego, co się czyta, a na ekranie nurkowania i tak
+     ląduje nad dolnym paskiem, czyli tam, gdzie i tak patrzysz na komunikaty. */
+  #toast{
+    position:fixed;bottom:26px;left:50%;transform:translateX(-50%);z-index:60;
+    padding:10px 22px;border:1px solid var(--cyan-dim);background:rgba(8,20,26,.94);color:var(--cyan);
+    font-size:15px;letter-spacing:.12em;opacity:0;transition:opacity .3s;pointer-events:none;
+  }
+  #toast.show{opacity:1}
+  #toast.warn{border-color:var(--orange);color:var(--orange)}
+  ::-webkit-scrollbar{width:8px;height:8px}
+  ::-webkit-scrollbar-thumb{background:var(--line2)}
+  ::-webkit-scrollbar-track{background:transparent}
+  /* ---------- SUBMARINE INSTRUMENT SKIN ---------- */
+  .ctl{
+    position:relative;
+    background-image:
+      radial-gradient(circle 3px at 8px 8px, #33505f 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 3px at calc(100% - 8px) 8px, #33505f 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 3px at 8px calc(100% - 8px), #33505f 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 3px at calc(100% - 8px) calc(100% - 8px), #33505f 35%, #0e1c25 60%, transparent 72%),
+      linear-gradient(180deg,#0e1922 0%,#0a141b 55%,#081019 100%);
+    box-shadow:inset 0 1px 0 rgba(150,200,215,.07), inset 0 0 0 1px rgba(0,0,0,.45), 0 2px 8px rgba(0,0,0,.5);
+    border-color:#1b2f3b;
+  }
+  .ctl h3::before{
+    content:'';display:inline-block;width:6px;height:6px;border-radius:50%;
+    background:var(--cyan);box-shadow:0 0 7px var(--cyan);margin-right:9px;vertical-align:1px;
+    animation:lamp 3.2s infinite;
+  }
+  .ctl.emerg h3::before{background:var(--orange);box-shadow:0 0 7px var(--orange);animation-duration:1.1s}
+  @keyframes lamp{0%,100%{opacity:1}50%{opacity:.45}}
+  .sq-btn,.dec-btn,.seg3 button,.dock-btn,#btn-pitch,#btn-launch,.ov-btn{
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.045), inset 0 -2px 0 rgba(0,0,0,.5);
+  }
+  .sq-btn:active,.dec-btn:active,.seg3 button:active,#btn-pitch:active{
+    box-shadow:inset 0 2px 6px rgba(0,0,0,.6);transform:translateY(1px);
+  }
+  .hudcell{background:linear-gradient(180deg,#0a151b,#070f14)}
+  .hudcell .val{text-shadow:0 0 10px rgba(90,214,226,.30)}
+  #hud{box-shadow:inset 0 -1px 0 rgba(150,200,215,.05)}
+  #sonar-wrap::after,#dockview-wrap::after{
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:
+      repeating-linear-gradient(0deg, rgba(180,230,240,.016) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, transparent 52%, rgba(2,6,9,.62) 100%);
+  }
+  #sonar-wrap,#dockview-wrap{box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), inset 0 0 40px rgba(0,20,28,.8)}
+  #bottombar .bcell{background:linear-gradient(180deg,#0a151b,#070f14)}
+  input[type=range]{box-shadow:inset 0 2px 4px rgba(0,0,0,.6)}
+  #snd-btn{cursor:pointer}
+  /* ---------- UPGRADE SHOP ---------- */
+  #shop-row{display:flex;gap:14px;margin:0 0 14px}
+  .shop-card{
+    flex:1;border:1px solid var(--line);padding:12px 14px;display:flex;flex-direction:column;gap:6px;
+    background-image:
+      radial-gradient(circle 3px at 8px 8px, #33505f 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 3px at calc(100% - 8px) 8px, #33505f 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 3px at 8px calc(100% - 8px), #33505f 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 3px at calc(100% - 8px) calc(100% - 8px), #33505f 35%, #0e1c25 60%, transparent 72%),
+      linear-gradient(180deg,#0e1922,#081019);
+    box-shadow:inset 0 1px 0 rgba(150,200,215,.07), inset 0 0 0 1px rgba(0,0,0,.45);
+  }
+  .shop-card .nm{font-size:15px;font-weight:700;color:#eaf6f9;letter-spacing:.12em}
+  .shop-card .ds{font-size:12px;color:var(--muted);line-height:1.55;letter-spacing:.05em}
+  .shop-buy{
+    margin-top:auto;padding:9px 0;background:var(--cyan-faint);border:1px solid var(--cyan-dim);
+    color:#dff5f8;font-family:var(--font);font-size:14px;font-weight:700;letter-spacing:.12em;cursor:pointer;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.045), inset 0 -2px 0 rgba(0,0,0,.5);
+  }
+  .shop-buy:hover:not(:disabled){background:#1d4b58}
+  .shop-buy:disabled{opacity:.35;cursor:default}
+  .shop-owned{margin-top:auto;padding:9px 0;text-align:center;color:var(--green);font-size:13px;letter-spacing:.14em;border:1px solid rgba(62,207,142,.3)}
+  /* ---------- RETRO / CRT MODE ---------- */
+  #px-btn.on{color:var(--cyan)}
+  body.retro #sonar,body.retro #dockview{image-rendering:pixelated}
+  body.retro #sonar-wrap::after, body.retro #dockview-wrap::after{
+    background:
+      repeating-linear-gradient(0deg, rgba(0,0,0,.24) 0 2px, transparent 2px 4px),
+      repeating-linear-gradient(90deg, rgba(0,0,0,.06) 0 1px, transparent 1px 3px),
+      radial-gradient(ellipse at center, rgba(90,220,200,.03) 0%, transparent 45%, rgba(2,6,9,.72) 100%);
+    animation:crtflick 5s infinite steps(1);
+  }
+  @keyframes crtflick{0%,100%{opacity:1}96.5%{opacity:.85}97%{opacity:1}98.2%{opacity:.9}98.6%{opacity:1}}
+  /* ---------- VESSEL (przekrój łodzi) ---------- */
+  #screen-vessel{flex-direction:column;overflow-y:auto;padding:18px 22px;gap:14px}
+  .vs-row{display:flex;gap:14px;align-items:stretch}
+  #vs-svgwrap{flex:1.7;border:1px solid var(--line2);background:#050b0f;padding:12px;box-shadow:inset 0 0 40px rgba(0,20,28,.8)}
+  #vs-svgwrap svg{width:100%;height:auto;display:block}
+  .vs-side{flex:1;display:flex;flex-direction:column;gap:14px;min-width:300px}
+  .sysrow{padding:9px 0;border-bottom:1px solid var(--line)}
+  .sysrow:last-child{border-bottom:none}
+  .sysrow .l1{display:flex;align-items:center;gap:10px;font-size:14px;letter-spacing:.1em}
+  .sysrow .l1 .nm{width:120px;color:var(--text)}
+  .sysrow .track{flex:1;height:9px;background:#122029;box-shadow:inset 0 1px 3px rgba(0,0,0,.6)}
+  .sysrow .fill{height:100%}
+  .sysrow .pc{width:44px;text-align:right;font-family:var(--mono);font-size:13px}
+  .sysrow .l2{font-size:11px;color:var(--muted);margin-top:4px;letter-spacing:.08em;padding-left:2px}
+  #cargo-grid{display:grid;grid-template-columns:repeat(3,1fr);gap:8px}
+  .cslot{border:1px dashed var(--line2);min-height:54px;padding:7px 9px;font-size:12px;color:var(--muted);
+    display:flex;flex-direction:column;justify-content:center;gap:3px;letter-spacing:.08em}
+  .cslot.full{flex-direction:row;align-items:center;gap:10px}
+  .cslot.full > div{display:flex;flex-direction:column;gap:3px;min-width:0}
+  /* sprite ma być ostry, nie wygładzony — to jego jedyny sens */
+  .cspr{width:36px;height:36px;flex:none;image-rendering:pixelated}
+  .cslot.full{border-style:solid;border-color:var(--cyan-dim);color:var(--text);background:rgba(89,214,226,.04)}
+  .cslot .v{color:var(--amber);font-family:var(--mono);font-size:12px}
+  /* --- plansza techniczna (rejestr kreślarski) --- */
+  #vessel-svg text{font-family:var(--serif)}
+  #vessel-svg .an{font-style:italic;letter-spacing:.02em}   /* opisy odnośników */
+  #vessel-svg .fig{font-size:11px;letter-spacing:0}          /* liczby wymiarowe */
+  #vessel-svg .ttl{letter-spacing:.16em}
+
+  /* ================================================================
+     DEPTH RAIL — the signature. Everything in this game is vertical:
+     crush depth, seabed, salvage depth. So depth gets drawn, not written.
+     The same 0→crush scale reappears on MISSIONS and on the pause plate.
+     ================================================================ */
+  #depth-rail{
+    width:66px;flex:none;margin:14px 0 0 14px;position:relative;overflow:hidden;
+    border:1px solid var(--line2);background:#050b0f;
+    box-shadow:inset 0 0 0 1px rgba(0,0,0,.5), inset 0 0 30px rgba(0,20,28,.8);
+  }
+  .dr-cap{
+    position:absolute;top:0;left:0;right:0;height:24px;z-index:4;
+    display:flex;align-items:center;justify-content:center;
+    font-size:10px;letter-spacing:.16em;color:var(--muted);
+    border-bottom:1px solid var(--line);background:#081015;
+  }
+  .dr-track{position:absolute;top:24px;bottom:12px;left:0;right:0}
+  .dr-tick{position:absolute;left:0;right:0;height:1px;background:var(--line);pointer-events:none}
+  .dr-tick.maj{background:var(--line2)}
+  .dr-tick i{
+    position:absolute;left:5px;top:-13px;font-style:normal;
+    font-family:var(--mono);font-size:10px;color:#3f5a66;letter-spacing:0;
+  }
+  /* rated operating band for the selected route */
+  .dr-band{position:absolute;left:0;right:0;background:rgba(89,214,226,.05);
+    border-top:1px solid rgba(89,214,226,.16);border-bottom:1px solid rgba(89,214,226,.16)}
+  /* seabed: the floor is real, so it reads as solid ground */
+  .dr-floor{position:absolute;left:0;right:0;bottom:0;
+    background:repeating-linear-gradient(-45deg, rgba(120,150,120,.16) 0 2px, transparent 2px 6px);
+    border-top:2px solid rgba(150,190,140,.55);transition:none}
+  .dr-crush{position:absolute;left:0;right:0;height:0;
+    border-top:1px dashed rgba(255,75,75,.75)}
+  .dr-crush i{position:absolute;right:4px;top:2px;font-style:normal;
+    font-family:var(--font);font-size:9px;letter-spacing:.12em;color:var(--red)}
+  /* target depth (where ballast is taking you) sits behind the live bug */
+  .dr-tgt{position:absolute;left:0;right:0;height:0;border-top:1px dotted rgba(232,163,60,.7)}
+  /* the boat */
+  .dr-bug{position:absolute;left:0;right:0;height:0;z-index:3}
+  .dr-bug::before{
+    content:'';position:absolute;left:0;right:0;top:-1px;height:2px;background:var(--cyan);
+    box-shadow:0 0 8px rgba(89,214,226,.7);
+  }
+  .dr-bug em{
+    position:absolute;left:3px;top:-17px;font-style:normal;
+    font-family:var(--mono);font-size:12px;font-weight:700;color:#eaf6f9;
+    text-shadow:0 0 8px rgba(89,214,226,.5);
+  }
+  #depth-rail.crit .dr-bug::before{background:var(--orange);box-shadow:0 0 8px rgba(255,106,60,.8)}
+  #depth-rail.crit .dr-bug em{color:var(--orange)}
+
+  /* ================================================================
+     MISSIONS — route strips on one shared depth scale, replacing the
+     data grid. Reading down the depth column compares the routes.
+     ================================================================ */
+  /* Tabela arkuszowa: pionowe liniowanie między kolumnami i podwójna linia pod
+     główką — tak wygląda tabela na planszy, i przy okazji o wiele łatwiej czyta
+     się kolumnę głębokości w pionie. gap:0, bo linia ma stać w miejscu styku. */
+  .rt-head{
+    display:grid;grid-template-columns:24px minmax(168px,1.25fr) 140px 78px 110px minmax(158px,1fr) 94px;
+    gap:0;align-items:stretch;padding:0 0 8px;border-bottom:1px solid var(--line2);
+    border-left:2px solid transparent;
+    font-family:var(--serif);font-size:11px;color:var(--muted);letter-spacing:.16em;
+  }
+  #route-strips{border-top:1px solid var(--line);margin-top:2px}
+  .rt-head>div,.rstrip>div{display:flex;flex-direction:column;justify-content:center;padding:0 12px}
+  .rt-head>div+div,.rstrip>div+div{border-left:1px solid #142430}
+  .rt-head .r,.rstrip .rs-cr{text-align:right;align-items:flex-end}
+  #route-strips{display:flex;flex-direction:column}
+  .rstrip{
+    display:grid;grid-template-columns:24px minmax(168px,1.25fr) 140px 78px 110px minmax(158px,1fr) 94px;
+    gap:0;align-items:stretch;padding:12px 0;cursor:pointer;
+    border-bottom:1px solid var(--line);border-left:2px solid transparent;
+  }
+  .rstrip:hover{background:#0a161d}
+  .rstrip.sel{background:#0c1d26;border-left-color:var(--cyan)}
+  .rstrip .mark{font-size:14px;color:var(--muted)}
+  .rstrip.sel .mark{color:var(--cyan)}
+  .rstrip .nm{font-family:var(--serif);font-size:16px;font-weight:400;color:#eaf6f9;letter-spacing:.1em}
+  .rstrip.sel .nm{color:#fff}
+  .chips{display:flex;gap:5px;margin-top:5px;flex-wrap:wrap}
+  .chip{
+    font-size:10px;letter-spacing:.12em;padding:2px 6px;
+    border:1px solid var(--line2);color:var(--muted);
+  }
+  .chip.storm{border-color:rgba(255,106,60,.45);color:var(--orange)}
+  .chip.haz{border-color:rgba(232,163,60,.45);color:var(--amber)}
+  .chip.cur{border-color:rgba(89,214,226,.35);color:var(--cyan-dim)}
+  /* the shared depth scale, one per row */
+  .rstrip>.rs-depth{position:relative;height:48px;flex-direction:row;align-items:stretch}
+  .rs-dtrack{
+    width:14px;flex:none;position:relative;background:#080f14;
+    border:1px solid #16303c;
+  }
+  .rs-dtrack::after{                       /* kreska na 600 m — połowa skali */
+    content:'';position:absolute;left:0;right:0;top:50%;height:1px;background:#16303c;
+  }
+  .rs-dband{position:absolute;left:0;right:0;background:linear-gradient(180deg,var(--cyan-dim),#1a5765)}
+  .rstrip.sel .rs-dband{background:linear-gradient(180deg,var(--cyan),#2d7f8c)}
+  .rs-dlab{position:relative;flex:1;font-family:var(--serif);font-size:11px;color:var(--muted)}
+  .rs-dlab span{position:absolute;left:6px;white-space:nowrap}
+  .rstrip.sel .rs-dlab span{color:var(--text)}
+  .rs-eta{font-family:var(--serif);font-size:16px;color:var(--text);letter-spacing:.04em}
+  /* difficulty as a 4-notch meter — severity is ordinal, so show it as one */
+  .dmeter{display:flex;gap:3px;margin-bottom:5px}
+  .dmeter b{width:15px;height:7px;background:#122029;display:block}
+  .dlabel{font-family:var(--serif);font-size:11.5px;letter-spacing:.1em}
+  .rs-reward{font-family:var(--serif);font-style:italic;font-size:12.5px;color:var(--muted);line-height:1.5;letter-spacing:.01em}
+  .rs-cr{font-family:var(--serif);font-size:17px;color:var(--amber);text-align:right}
+  .rs-cr small{display:block;font-family:var(--font);font-size:9.5px;color:var(--muted);letter-spacing:.14em}
+
+  /* ================================================================
+     PAUSE / SETTINGS — not a dialog box. The boat is holding station,
+     so this is a bulkhead plate bolted over the screen. Deliberately
+     motionless: every other surface in this game breathes, this one stops.
+     ================================================================ */
+  #pause{
+    position:fixed;inset:0;z-index:70;display:none;
+    background:rgba(3,8,11,.86);padding:26px;
+  }
+  #pause.show{display:flex;align-items:center}
+  #pause::before{ /* the freeze: static scanlines, no flicker animation */
+    content:'';position:absolute;inset:0;pointer-events:none;
+    background:repeating-linear-gradient(0deg, rgba(0,0,0,.22) 0 2px, transparent 2px 4px);
+  }
+  .pz-plate{
+    position:relative;flex:1;display:flex;min-height:0;max-height:100%;
+    border:1px solid #24404f;background:#08121a;
+    box-shadow:inset 0 1px 0 rgba(150,200,215,.08), 0 18px 60px rgba(0,0,0,.7);
+    background-image:
+      radial-gradient(circle 4px at 14px 14px, #3c5d6e 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 4px at calc(100% - 14px) 14px, #3c5d6e 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 4px at 14px calc(100% - 14px), #3c5d6e 35%, #0e1c25 60%, transparent 72%),
+      radial-gradient(circle 4px at calc(100% - 14px) calc(100% - 14px), #3c5d6e 35%, #0e1c25 60%, transparent 72%),
+      linear-gradient(180deg,#0d1922 0%,#0a141b 60%,#081019 100%);
+  }
+  /* frozen depth ribbon — same motif, stopped */
+  #pz-rail{
+    width:62px;flex:none;position:relative;overflow:hidden;
+    border-right:1px solid var(--line2);background:#050b0f;
+  }
+  .pz-body{flex:1;display:flex;flex-direction:column;min-width:0;padding:26px 30px 22px}
+  .pz-head{border-bottom:1px solid var(--line);padding-bottom:16px;margin-bottom:20px}
+  .pz-head h2{font-size:30px;font-weight:800;letter-spacing:.14em;color:#eef8fa}
+  .pz-head .k{font-size:12px;color:var(--muted);letter-spacing:.2em;margin-top:6px}
+  .pz-head .k b{color:var(--cyan);font-weight:600}
+  .pz-cols{flex:1;display:flex;gap:40px;min-height:0;overflow-y:auto}
+  .pz-col{flex:1;min-width:0}
+  .pz-col.narrow{flex:none;width:262px}
+  .pz-col h3{
+    font-size:12px;letter-spacing:.2em;color:var(--muted);font-weight:600;
+    padding-bottom:8px;border-bottom:1px solid var(--line);margin-bottom:4px;
+  }
+  .setrow{display:flex;align-items:center;gap:14px;padding:11px 0;border-bottom:1px solid #101c24}
+  .setrow:last-child{border-bottom:none}
+  .setrow .sl{flex:1;min-width:0}
+  .setrow .sl .n{font-size:14px;color:var(--text);letter-spacing:.08em}
+  .setrow .sl .d{font-size:11px;color:var(--muted);letter-spacing:.06em;margin-top:2px}
+  .setrow input[type=range]{width:124px;flex:none}
+  .setrow .rv{font-family:var(--mono);font-size:12px;color:var(--cyan);width:40px;text-align:right;flex:none}
+  /* square toggle — the game has no rounded corners anywhere */
+  .tgl{
+    width:52px;height:26px;flex:none;border:1px solid var(--line2);background:#0a1319;
+    position:relative;cursor:pointer;box-shadow:inset 0 2px 4px rgba(0,0,0,.6);
+  }
+  .tgl::after{
+    content:'';position:absolute;top:2px;left:2px;width:22px;height:20px;background:#2b3f4b;
+    transition:left .12s linear, background .12s linear;
+  }
+  .tgl.on{border-color:var(--cyan-dim);background:var(--cyan-faint)}
+  .tgl.on::after{left:26px;background:var(--cyan)}
+  .tgl:focus-visible{outline:2px solid var(--cyan);outline-offset:2px}
+  /* frozen readouts */
+  .pz-stat{display:flex;justify-content:space-between;align-items:baseline;padding:9px 0;border-bottom:1px solid #101c24}
+  .pz-stat .l{font-size:11px;color:var(--muted);letter-spacing:.16em}
+  .pz-stat .v{font-family:var(--mono);font-size:15px;color:#eaf6f9}
+  .pz-stat .v.warn{color:var(--amber)} .pz-stat .v.bad{color:var(--orange)}
+  .pz-foot{display:flex;gap:12px;align-items:center;padding-top:18px;margin-top:14px;border-top:1px solid var(--line)}
+  .pz-foot .grow{flex:1}
+  .pz-btn{
+    padding:13px 28px;background:var(--cyan-faint);border:1px solid var(--cyan-dim);color:#dff5f8;
+    font-family:var(--font);font-size:15px;font-weight:700;letter-spacing:.12em;cursor:pointer;
+    box-shadow:inset 0 2px 0 rgba(255,255,255,.045), inset 0 -2px 0 rgba(0,0,0,.5);
+  }
+  .pz-btn:hover{background:#1d4b58}
+  .pz-btn.ghost{background:transparent;border-color:var(--line2);color:var(--muted)}
+  .pz-btn.ghost:hover{background:#0e1a22;color:var(--text)}
+  .pz-btn.danger{background:transparent;border-color:rgba(255,106,60,.5);color:var(--orange)}
+  .pz-btn.danger:hover{background:rgba(255,106,60,.12)}
+  .pz-btn.sm{padding:9px 16px;font-size:13px;font-weight:600}
+  /* ---- LEGENDA ----------------------------------------------------
+     Ikony to próbki wycięte z ekranu, nie ilustracje: rysuje je ten sam
+     kod, co sonar. Dlatego siedzą w studzience w kolorze tła sonaru —
+     mają wyglądać jak wycinek panelu, a nie jak clipart w tabelce.
+     ------------------------------------------------------------------ */
+  .pz-tabs{display:flex;gap:2px;margin-top:14px}
+  .pz-tab{
+    padding:8px 20px;font-family:var(--font);font-size:12px;font-weight:600;
+    letter-spacing:.18em;cursor:pointer;color:var(--muted);
+    background:transparent;border:1px solid var(--line);
+  }
+  .pz-tab:hover{color:var(--text)}
+  .pz-tab.on{color:#eaf6f9;border-color:var(--cyan-dim);background:var(--cyan-faint)}
+  .pz-tab:focus-visible{outline:2px solid var(--cyan);outline-offset:-2px}
+  .pz-cols.off{display:none}
+  /* Kolumny rozdziela JS na zmierzonych wysokościach sekcji, nie column-count:
+     sekcji nie wolno łamać w pół, a przy takim ograniczeniu balanser CSS zostawia
+     jedną kolumnę pustą, a drugą uciętą. flex:1 1 0 trzyma równe szerokości. */
+  #pz-legend{flex:1;min-height:0;overflow-y:auto;display:none}
+  #pz-legend.on{display:block}
+  .lg-cols{display:flex;gap:36px;align-items:flex-start}
+  .lg-col{flex:1 1 0;min-width:0}
+  .lg-sec{margin-bottom:16px}
+  .lg-sec h3{
+    font-size:12px;letter-spacing:.2em;color:var(--muted);font-weight:600;
+    padding-bottom:7px;border-bottom:1px solid var(--line);margin-bottom:4px;
+  }
+  .lg-row{display:flex;gap:12px;align-items:flex-start;padding:5px 0}
+  .lg-ic{
+    width:46px;height:30px;flex:none;background:#050c11;border:1px solid #12222b;
+    display:flex;align-items:center;justify-content:center;image-rendering:pixelated;
+  }
+  /* te same .pip co w HUD-zie, tylko przycięte do studzienki */
+  .lg-ic .pips{gap:2px}
+  .lg-ic .pip{width:4px;height:15px}
+  .lg-tx{min-width:0}
+  .lg-n{font-size:13px;color:var(--text);letter-spacing:.09em}
+  .lg-t{font-size:11px;color:var(--muted);letter-spacing:.05em;line-height:1.45;margin-top:2px}
+  .lg-t b{color:var(--cyan);font-weight:600}
+  .lg-t i{font-style:normal;color:var(--amber)}
+  /* katalog sylwetek — tu liczy się kształt, więc opis schodzi do minimum */
+  .lg-spr{display:grid;grid-template-columns:repeat(2,1fr);gap:7px;margin-top:10px}
+  .lg-spr div{display:flex;align-items:center;gap:7px;min-width:0}
+  .lg-spr canvas{width:24px;height:24px;flex:none;image-rendering:pixelated}
+  .lg-spr span{font-size:10px;color:var(--muted);letter-spacing:.05em;line-height:1.2}
+  .lg-keys{display:grid;grid-template-columns:auto 1fr;gap:5px 11px;align-items:center;padding-top:4px}
+  .lg-keys b{
+    font-family:var(--mono);font-size:11px;font-weight:600;color:var(--cyan);
+    background:#0b1a22;border:1px solid var(--line2);padding:2px 6px;
+    text-align:center;white-space:nowrap;
+  }
+  .lg-keys span{font-size:11px;color:var(--muted);letter-spacing:.06em}
+  /* accessibility floor */
+  .navtab:focus-visible,.sq-btn:focus-visible,.seg3 button:focus-visible,.dock-btn:focus-visible,
+  .rstrip:focus-visible,.shop-buy:focus-visible,.pz-btn:focus-visible,.ov-btn:focus-visible,
+  #btn-launch:focus-visible,#btn-pitch:focus-visible,.dec-btn:focus-visible{
+    outline:2px solid var(--cyan);outline-offset:-2px;
+  }
+  @media (prefers-reduced-motion: reduce){
+    *,*::before,*::after{animation-duration:.001ms !important;animation-iteration-count:1 !important;
+      transition-duration:.001ms !important}
+  }
+  @media (max-width:1100px){
+    .rt-head,.rstrip{grid-template-columns:22px minmax(120px,1fr) 114px 68px 96px 86px}
+    .rt-head .c-reward,.rstrip .rs-reward{display:none}
+    .pz-cols{flex-direction:column;gap:18px}
+    .pz-col.narrow{width:auto}
+  }
+</style>
+</head>
+<body>
+
+<nav id="topnav">
+  <div class="brand">BLACKWATER DOCK</div>
+  <div class="navtab active" data-tab="dive">DIVE</div>
+  <div class="navtab" data-tab="vessel">VESSEL</div>
+  <div class="navtab" data-tab="missions">MISSIONS</div>
+  <div class="navtab" data-tab="logbook">LOGBOOK</div>
+  <div class="spacer"></div>
+  <div class="navtab" id="px-btn" title="Tryb retro pixel/CRT">▦ PIXEL</div>
+  <div class="navtab" id="snd-btn" title="Dźwięk sonaru wł./wył.">🔊 AUDIO</div>
+  <div class="gear" id="gear-btn" role="button" tabindex="0" title="Pauza i ustawienia (ESC)">⚙</div>
+</nav>
+
+<div id="hud">
+  <div class="hudcell primary">
+    <div class="lbl">DEPTH</div>
+    <div class="val"><span id="h-depth">184</span><u>m</u></div>
+    <div class="sub">DO DNA <b id="h-clear">—</b></div>
+  </div>
+  <div class="hudcell nav">
+    <div class="navitem"><div class="lbl">BEARING</div><div class="val"><span id="h-bearing">072°</span></div></div>
+    <div class="navitem"><div class="lbl">SPEED</div><div class="val"><span id="h-speed">3.8 kn</span></div></div>
+  </div>
+  <div class="hudcell gauge"><div class="lbl">BATTERY</div><div class="val"><span id="h-batt">61%</span><span class="pips" id="p-batt"></span></div></div>
+  <div class="hudcell gauge"><div class="lbl">HULL PRESSURE</div><div class="val"><span id="h-hull">42%</span><span class="pips" id="p-hull"></span></div></div>
+  <div class="hudcell alert"><div class="lbl"><span class="warn-tri">⚠</span> STORM SURGE</div><div class="val"><span class="sev" id="h-storm">SEVERE</span></div></div>
+</div>
+
+<!-- ============ DIVE ============ -->
+<section class="screen active" id="screen-dive">
+  <div id="dive-main">
+    <div id="depth-rail" title="Profil pionowy: powierzchnia u góry, głębokość niszcząca na dole">
+      <div class="dr-cap">GŁĘB. m</div>
+      <div class="dr-track">
+        <div class="dr-band"></div>
+        <div class="dr-floor"></div>
+        <div class="dr-crush"><i>CRUSH</i></div>
+        <div class="dr-tgt"></div>
+        <div class="dr-bug"><em>184</em></div>
+      </div>
+    </div>
+    <div id="sonar-wrap">
+      <canvas id="sonar"></canvas>
+      <div id="sonar-conf">SONAR CONFIDENCE <b id="conf-val">68%</b><div class="pips" id="p-conf"></div></div>
+    </div>
+    <div id="controls">
+      <div class="ctl">
+        <h3>THROTTLE</h3>
+        <div class="throttle-row">
+          <button class="sq-btn" id="thr-minus">−</button>
+          <div class="bar-track" id="thr-track"></div>
+          <button class="sq-btn" id="thr-plus">+</button>
+        </div>
+        <div class="readout" id="thr-read">3.8 kn</div>
+        <div class="key-hint">↑ / ↓</div>
+      </div>
+      <div class="ctl">
+        <h3>HEADING</h3>
+        <div class="throttle-row">
+          <button class="sq-btn" id="hdg-left">◀</button>
+          <div id="hdg-tape"><canvas id="hdg-canvas"></canvas></div>
+          <button class="sq-btn" id="hdg-right">▶</button>
+        </div>
+        <div class="readout" id="hdg-read">072°</div>
+        <div class="key-hint">← / →</div>
+      </div>
+      <div class="ctl">
+        <h3>BALLAST TRIM</h3>
+        <div class="ballast-lbls"><span>DOWN</span><b id="bal-read">0%</b><span>UP</span></div>
+        <input type="range" id="ballast" min="-100" max="100" value="0" step="5">
+        <div class="ballast-lbls"><span>Z</span><span></span><span>X</span></div>
+      </div>
+      <div class="ctl">
+        <h3>SILENT RUNNING</h3>
+        <div class="seg3">
+          <button data-sr="0">OFF</button>
+          <button data-sr="1">PASSIVE</button>
+          <button data-sr="2" class="active">ACTIVE</button>
+        </div>
+        <div class="key-hint">S</div>
+      </div>
+      <div class="ctl emerg">
+        <h3>EMERGENCY PITCH</h3>
+        <button id="btn-pitch">⛵ POSITIVE PITCH</button>
+        <div class="key-hint">P</div>
+      </div>
+    </div>
+  </div>
+  <div id="bottombar">
+    <div class="bcell" style="flex:1.1">
+      <div id="wp-title">⬡ <span id="wp-name">NORTHPOINT DOCK</span> · <span id="wp-dist">1.8 km</span></div>
+      <div class="wp-dots" id="wp-dots"></div>
+      <div class="wp-sub" id="wp-sub">WAYPOINT 1 OF 5</div>
+    </div>
+    <div class="bcell" style="flex:1.1">
+      <div id="storm-title">⚠ STORM SURGE IN <span id="storm-eta">02:14</span></div>
+      <div id="storm-stats">WIND <b id="st-wind">46 kn</b> <span>·</span> SWELL <b id="st-swell">5.2 m</b> <span>·</span> VIS <b id="st-vis">120 m</b></div>
+      <div id="storm-bar"></div>
+    </div>
+    <div class="bcell" style="flex:1.2">
+      <div id="decision-q"><span class="qmark">?</span><span id="dec-text">HOLD COURSE OR CUT EAST</span></div>
+      <div class="dec-btns">
+        <button class="dec-btn" id="dec-hold"><span class="kb">H</span> HOLD COURSE</button>
+        <button class="dec-btn" id="dec-cut"><span class="kb">E</span> CUT EAST</button>
+      </div>
+    </div>
+  </div>
+</section>
+
+<!-- ============ DOCK APPROACH ============ -->
+<section class="screen" id="screen-dock">
+  <div id="dock-head">
+    <span class="back" id="dock-back">← BACK TO DIVE</span>
+    <span class="ttl">DOCK APPROACH <span>· <span id="dock-name">NORTHPOINT DOCK</span></span></span>
+  </div>
+  <div id="dock-main">
+    <div id="dockview-wrap">
+      <canvas id="dockview"></canvas>
+      <div id="dock-info">
+        <div class="t" id="dock-info-name">NORTHPOINT DOCK</div>
+        CAPTURE ZONE <b>38 m</b><br>
+        CURRENT <b id="di-cur">1.2 kn EAST</b><br>
+        ALIGNMENT <b id="di-align">71%</b>
+      </div>
+    </div>
+    <div id="dock-side">
+      <div class="ctl">
+        <h3>APPROACH CHECKLIST</h3>
+        <div id="chk-list"></div>
+      </div>
+      <div class="ctl">
+        <h3>EVENT LOG</h3>
+        <div id="evlog"></div>
+      </div>
+    </div>
+  </div>
+  <div id="dock-actions">
+    <button class="dock-btn abort" id="btn-abort"><span style="font-size:20px">✕</span><span><span class="b1">ABORT APPROACH</span></span></button>
+    <button class="dock-btn primary" id="btn-manual"><span style="font-size:22px;color:var(--cyan)">⚓</span><span><span class="b1">MANUAL DOCK</span><br><span class="b2">Full manual control</span></span></button>
+    <button class="dock-btn gold" id="btn-assist"><span style="font-size:22px;color:var(--amber)">◎</span><span><span class="b1">ASSISTED ALIGNMENT</span><br><span class="b2">Auto-align with higher risk</span></span></button>
+  </div>
+</section>
+
+<!-- ============ VESSEL ============ -->
+<section class="screen" id="screen-vessel">
+  <div class="lb-row">
+    <div class="lb-card" style="flex:2;display:flex;gap:16px;align-items:center">
+      <span style="font-size:26px;color:var(--cyan)">🌊</span>
+      <span><span style="font-size:20px;font-weight:800;color:#eef8fa;letter-spacing:.08em">KESTREL-7</span><br>
+      <span style="font-size:12px;color:var(--muted);letter-spacing:.14em">COMPACT RESEARCH SUBMERSIBLE · PRZEKRÓJ TECHNICZNY</span></span>
+    </div>
+    <div class="lb-card lb-stat"><span class="lbl">ŚREDNI STAN SYSTEMÓW</span><span class="val" id="vs-avg">100%</span></div>
+    <div class="lb-card lb-stat"><span class="lbl">ŁADOWNIA</span><span class="val" id="vs-cargo-n">0 / 6</span></div>
+    <div class="lb-card lb-stat"><span class="lbl">CREDITS</span><span class="val" id="vs-credits">0</span></div>
+  </div>
+  <div class="vs-row">
+    <div id="vs-svgwrap">
+      <!-- Plansza generowana w buildVesselPlate(): ~300 elementów, których
+           nie da się utrzymać ręcznie. Tu zostaje tylko rama arkusza. -->
+      <svg id="vessel-svg" viewBox="0 0 940 408"></svg>
+    </div>
+    <div class="vs-side">
+      <div class="ctl"><h3>SYSTEMY POKŁADOWE</h3><div id="sys-list"></div></div>
+    </div>
+  </div>
+  <div class="vs-row">
+    <div class="ctl" style="flex:1.7"><h3>MAGAZYN ŁADUNKU</h3>
+      <div id="cargo-grid"></div>
+      <div class="key-hint" style="text-align:left;margin-top:9px">Ładunek SALVAGE zbierasz w trakcie misji, podpływając do wykrytego kontaktu na jego głębokości (zielone echa na sonarze). Sprzedaż automatycznie po zadokowaniu. Utrata misji = utrata ładunku.</div>
+    </div>
+    <div class="ctl" style="flex:1"><h3>STOCZNIA</h3>
+      <div id="repair-info" style="font-size:13px;color:var(--muted);line-height:1.7;margin-bottom:10px;letter-spacing:.06em"></div>
+      <button id="btn-repair" class="shop-buy" style="width:100%">NAPRAWA</button>
+    </div>
+  </div>
+</section>
+
+<!-- ============ MISSIONS ============ -->
+<section class="screen" id="screen-missions">
+  <div class="mhead">
+    <div>
+      <h1>MISSION CHART</h1>
+      <div class="msub"><b>VESSEL KESTREL-7</b> &nbsp; <span id="routes-avail">6 ROUTES AVAILABLE</span> &nbsp;·&nbsp; CREDITS <b id="m-credits">0</b></div>
+    </div>
+    <button id="btn-launch">🌊 LAUNCH SELECTED DIVE</button>
+  </div>
+  <div id="shop-row"></div>
+  <div id="mission-map-wrap"><canvas id="mission-map"></canvas></div>
+  <div class="rt-head">
+    <div></div>
+    <div>TRASA / WARUNKI</div>
+    <div>PROFIL GŁĘBOKOŚCI</div>
+    <div>ETA</div>
+    <div>TRUDNOŚĆ</div>
+    <div class="c-reward">PREMIA</div>
+    <div class="r">STAWKA</div>
+  </div>
+  <div id="route-strips"></div>
+  <div class="mfoot"><span>Wszystkie profile w jednej skali 0–1200 m — porównuj trasy w pionie. Kliknij trasę, żeby ją wybrać; dwuklik startuje od razu.</span><span class="rev">ARK. 01 — KARTA TRAS · BIURO KONSTRUKCYJNE</span></div>
+</section>
+
+<!-- ============ LOGBOOK ============ -->
+<section class="screen" id="screen-logbook">
+  <div class="lb-row">
+    <div class="lb-card" id="lb-vessel">
+      <span class="icon">🌊</span>
+      <span><span class="nm">KESTREL-7</span><br><span class="ds">COMPACT RESEARCH SUBMERSIBLE</span></span>
+    </div>
+    <div class="lb-card lb-stat"><span class="lbl">SUCCESSFUL DOCKINGS</span><span class="val" id="lb-dockings">0</span></div>
+    <div class="lb-card lb-stat"><span class="lbl">CLEARANCE LEVEL</span><span class="val" id="lb-clear">01</span></div>
+    <div class="lb-card lb-stat"><span class="lbl">CREDITS</span><span class="val" id="lb-credits">0</span></div>
+  </div>
+  <div class="lb-row">
+    <div class="lb-card lb-stat"><span class="lbl">TOTAL DISTANCE</span><span class="val" id="lb-dist">0.0 km</span></div>
+    <div class="lb-card lb-stat"><span class="lbl">DEEPEST DIVE</span><span class="val" id="lb-deep">0 m</span></div>
+    <div class="lb-card lb-stat"><span class="lbl">BEST BATTERY RESERVE</span><span class="val" id="lb-batt">—</span></div>
+    <div class="lb-card lb-stat"><span class="lbl">STORMS SURVIVED</span><span class="val" id="lb-storms">0</span></div>
+  </div>
+  <div class="lb-row">
+    <div class="lb-card lb-best">
+      <h3>BEST RUN</h3>
+      <div class="bt" id="lb-best-route">—</div>
+      <div class="big" id="lb-best-time">--:--</div>
+      <div class="ctx" id="lb-best-ctx"></div>
+      <div id="lb-badge"></div>
+    </div>
+    <div class="lb-card lb-dives">
+      <h3>RECENT DIVES</h3>
+      <table class="dive-table">
+        <thead><tr><th>DATE</th><th>DESTINATION</th><th>OUTCOME</th><th>TIME</th><th>MAX DEPTH</th></tr></thead>
+        <tbody id="dive-rows"><tr><td colspan="5" style="color:var(--muted)">No dives logged yet. Launch a mission.</td></tr></tbody>
+      </table>
+    </div>
+  </div>
+  <div class="lb-foot">ARK. 02 — DZIENNIK ZANURZEŃ · BIURO KONSTRUKCYJNE</div>
+</section>
+
+<div id="overlay">
+  <div class="panel">
+    <div id="ov-badge-slot"></div>
+    <div id="ov-title">DOCKED</div>
+    <div id="ov-sub"></div>
+    <div id="ov-stats"></div>
+    <div class="ov-btns">
+      <button class="ov-btn" id="ov-again">NEW DIVE</button>
+      <button class="ov-btn ghost" id="ov-log">VIEW LOGBOOK</button>
+    </div>
+  </div>
+</div>
+<!-- ============ PAUSE / SETTINGS ============ -->
+<div id="pause" role="dialog" aria-modal="true" aria-labelledby="pz-title">
+  <div class="pz-plate">
+    <div id="pz-rail">
+      <div class="dr-cap">GŁĘB. m</div>
+      <div class="dr-track">
+        <div class="dr-band"></div>
+        <div class="dr-floor"></div>
+        <div class="dr-crush"><i>CRUSH</i></div>
+        <div class="dr-tgt"></div>
+        <div class="dr-bug"><em>—</em></div>
+      </div>
+    </div>
+    <div class="pz-body">
+      <div class="pz-head">
+        <h2 id="pz-title">ALL STOP</h2>
+        <div class="k" id="pz-ctx">Łódź utrzymuje pozycję. <b>ESC</b> wraca do nurkowania.</div>
+        <div class="pz-tabs">
+          <button class="pz-tab on" id="pz-tab-set">USTAWIENIA</button>
+          <button class="pz-tab" id="pz-tab-leg">LEGENDA</button>
+        </div>
+      </div>
+      <div class="pz-cols" id="pz-settings">
+        <div class="pz-col">
+          <h3>DŹWIĘK</h3>
+          <div class="setrow">
+            <div class="sl"><div class="n">Głośność główna</div></div>
+            <input type="range" id="set-vol" min="0" max="100" step="5" value="50">
+            <div class="rv" id="rv-vol">50</div>
+          </div>
+          <div class="setrow">
+            <div class="sl"><div class="n">Ping sonaru</div><div class="d">Aktywny sonar i echo</div></div>
+            <input type="range" id="set-ping" min="0" max="100" step="5" value="100">
+            <div class="rv" id="rv-ping">100</div>
+          </div>
+          <div class="setrow">
+            <div class="sl"><div class="n">Tło</div><div class="d">Hum silnika i szum głębin</div></div>
+            <input type="range" id="set-amb" min="0" max="100" step="5" value="100">
+            <div class="rv" id="rv-amb">100</div>
+          </div>
+        </div>
+        <div class="pz-col">
+          <h3>STEROWANIE</h3>
+          <div class="setrow">
+            <div class="sl"><div class="n">Czułość steru</div><div class="d">Tempo zmiany kursu strzałkami</div></div>
+            <input type="range" id="set-sens" min="50" max="180" step="10" value="100">
+            <div class="rv" id="rv-sens">100%</div>
+          </div>
+          <h3 style="margin-top:24px">OBRAZ</h3>
+          <div class="setrow">
+            <div class="sl"><div class="n">Tryb retro CRT</div><div class="d">Pikselizacja i scanline na sonarze</div></div>
+            <button class="tgl" id="set-retro" role="switch" aria-checked="false" aria-label="Tryb retro CRT"></button>
+          </div>
+          <div class="setrow">
+            <div class="sl"><div class="n">Pełny ekran</div><div class="d">F11 działa równolegle</div></div>
+            <button class="tgl" id="set-fs" role="switch" aria-checked="false" aria-label="Pełny ekran"></button>
+          </div>
+        </div>
+        <div class="pz-col narrow">
+          <h3>ODCZYT ZAMROŻONY</h3>
+          <div id="pz-stats"></div>
+        </div>
+      </div>
+      <div id="pz-legend"></div>
+      <div class="pz-foot">
+        <button class="pz-btn" id="pz-resume">WZNÓW</button>
+        <button class="pz-btn ghost" id="pz-abort">PRZERWIJ NURKOWANIE</button>
+        <span class="grow"></span>
+        <button class="pz-btn danger sm" id="pz-reset">RESET POSTĘPÓW</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="toast"></div>
+
+<script>
+'use strict';
+/* ================= BLACKWATER DOCK — game core ================= */
+const $ = id => document.getElementById(id);
+const clamp = (v,a,b) => Math.max(a,Math.min(b,v));
+const lerp = (a,b,t) => a+(b-a)*t;
+const TAU = Math.PI*2;
+const d2r = d => d*Math.PI/180;
+const fmtT = s => { s=Math.max(0,Math.floor(s)); return String(Math.floor(s/60)).padStart(2,'0')+':'+String(s%60).padStart(2,'0'); };
+const fmtB = d => d>=1000 ? (d/1000).toFixed(1)+' km' : Math.round(d)+' m';
+
+/* deterministic RNG so terrain is stable per-mission */
+function mulberry(seed){ return function(){ let t = seed += 0x6D2B79F5;
+  t = Math.imul(t ^ t>>>15, t|1); t ^= t + Math.imul(t ^ t>>>7, t|61);
+  return ((t ^ t>>>14)>>>0)/4294967296; }; }
+
+/* ---------------- MISSIONS ---------------- */
+const MISSIONS = [
+  {id:0,name:'Northpoint Dock',eta:'08:40',diff:'Hard',dmin:180,dmax:680,cond:['⛈','≋','⚓'],reward:'+25% credits on reserve ≥ 50%',credits:250,storm:2,haz:3,wp:5,len:5200,fav:true},
+  {id:1,name:'Lantern Reef',eta:'05:12',diff:'Medium',dmin:90,dmax:320,cond:['≋'],reward:'+15% credits',credits:150,storm:0,haz:2,wp:4,len:3600},
+  {id:2,name:'GreyPoint Depths',eta:'07:26',diff:'Medium',dmin:120,dmax:540,cond:['≋','⚠'],reward:'Extra battery cell',credits:170,storm:1,haz:2,wp:4,len:4300},
+  {id:3,name:'Asterion Trench',eta:'12:06',diff:'Extreme',dmin:250,dmax:1150,cond:['⛈','≋','⚠'],reward:'+40% credits on reserve ≥ 60%',credits:400,storm:3,haz:5,wp:6,len:7200},
+  {id:4,name:'Midnight Trench Crossing',eta:'09:18',diff:'Hard',dmin:200,dmax:980,cond:['≋'],reward:'Advanced sonar upgrade',credits:300,storm:1,haz:4,wp:5,len:6100},
+  {id:5,name:'Blackwater Survey',eta:'06:44',diff:'Medium',dmin:100,dmax:420,cond:['⚠'],reward:'+20% credits',credits:180,storm:1,haz:2,wp:4,len:3900},
+];
+let selMission = 0;
+
+/* ---------------- GLOBAL STATE ---------------- */
+const G = {
+  tab:'dive', mode:'dive',           // mode: dive | dock | idle
+  running:false, over:false,
+  t:0, seed:7,
+  sub:{x:0,y:0,hdg:72,thr:4,spd:0,depth:184,ballast:0,batt:100,hull:0,silent:2},
+  targetDepth:184,
+  mission:MISSIONS[0],
+  wpts:[], wpIdx:0, hazards:[],
+  storm:{eta:134,phase:'building',sev:'SEVERE',wind:46,swell:5.2,vis:120,decided:false,active:0},
+  conf:68, distTravelled:0, maxDepth:0, stormsSurvived:0,
+  dock:{align:50, lateral:0, dist:520, mode:null, done:false, assistRisk:false, checks:[false,false,false,false],
+        roll:0, prevLat:0},
+  log:[],
+  cam:{pitch:0, bank:0, prevHdg:72},   // widok 3D: przechył i pochylenie kamery
+  snow:[],                             // opad morski (marine snow), współrzędne świata
+  fog:null, fogO:{x:0,y:0},            // rozpoznanie akwenu: co karta już zna
+  paused:false, pausedMs:0,
+  settings:{vol:50, ping:100, amb:100, sens:100, retro:false},
+  stats:{dockings:0, credits:0, dist:0, deepest:0, bestBatt:null, storms:0, best:null, dives:[], clearance:1},
+};
+const DEFAULT_STATS=()=>({dockings:0, credits:0, dist:0, deepest:0, bestBatt:null, storms:0, best:null, dives:[], clearance:1});
+
+/* ---------------- TABS ---------------- */
+document.querySelectorAll('.navtab[data-tab]').forEach(el=>{
+  el.onclick = ()=> showTab(el.dataset.tab);
+});
+function showTab(tab){
+  G.tab = tab;
+  document.querySelectorAll('.navtab').forEach(e=>e.classList.toggle('active', e.dataset.tab===tab));
+  const scr = tab==='dive' && G.mode==='dock' ? 'dock' : tab;
+  document.querySelectorAll('.screen').forEach(e=>e.classList.remove('active'));
+  $('screen-'+scr).classList.add('active');
+  sizeCanvases();
+  if(tab==='missions'){ drawMissionMap(); renderShop(); }
+  if(tab==='logbook') renderLogbook();
+  if(tab==='vessel') renderVessel();
+}
+
+/* ---------------- TOAST ---------------- */
+let toastTimer=null;
+function toast(msg, warn=false){
+  const t=$('toast'); t.textContent=msg;
+  t.className='show'+(warn?' warn':'');
+  clearTimeout(toastTimer);
+  toastTimer=setTimeout(()=>t.className='',2600);
+}
+
+/* ---------------- PIPS ---------------- */
+function makePips(el,n){ el.innerHTML=''; for(let i=0;i<n;i++){const p=document.createElement('span');p.className='pip';el.appendChild(p);} }
+makePips($('p-batt'),8); makePips($('p-hull'),8); makePips($('p-conf'),16);
+(function(){const sb=$('storm-bar'); for(let i=0;i<16;i++){const p=document.createElement('span');p.className='pip';sb.appendChild(p);}})();
+function setPips(el,frac,cls){
+  const pips=el.children, n=pips.length, on=Math.round(frac*n);
+  for(let i=0;i<n;i++){ pips[i].className='pip'+(i<on?' on':''); if(i<on&&cls)pips[i].classList.add(cls); }
+}
+
+/* ---------------- MISSION SETUP ---------------- */
+function setupMission(m){
+  G.mission=m; G.seed=1000+m.id*77;
+  const rng=mulberry(G.seed);
+  G.sub.x=0; G.sub.y=0; G.sub.hdg=72; G.sub.thr=4; G.sub.spd=0;
+  G.sub.depth=clamp(m.dmin+4, m.dmin, m.dmax); G.targetDepth=G.sub.depth;
+  G.sub.ballast=0; G.sub.batt=100; G.sub.hull=Math.round(G.sub.depth/12); G.sub.silent=2;
+  $('ballast').value=0;
+  // waypoint chain drifting roughly NE
+  G.wpts=[]; let px=0, py=0, ang=d2r(72-90);
+  const step=m.len/m.wp;
+  for(let i=0;i<m.wp;i++){
+    ang += (rng()-0.5)*1.1;
+    px += Math.cos(ang)*step; py += Math.sin(ang)*step;
+    G.wpts.push({x:px,y:py,depth:clamp(m.dmin+rng()*(m.dmax-m.dmin)*0.5, m.dmin, m.dmax)});
+  }
+  G.wpIdx=0;
+  // hazards near path (each at its own depth — evade by diving over/under)
+  G.hazards=[];
+  for(let i=0;i<m.haz;i++){
+    const w=G.wpts[Math.floor(rng()*G.wpts.length)];
+    G.hazards.push({x:w.x+(rng()-0.5)*900, y:w.y+(rng()-0.5)*900, vx:(rng()-0.5)*1.4, vy:(rng()-0.5)*1.4, r:70,
+      depth:Math.round(clamp(m.dmin+rng()*(m.dmax-m.dmin)*0.55, m.dmin, m.dmax)),
+      seen:-999, sx:0, sy:0, lastPing:-1,
+      name: rng()<0.5?'DRIFTING CARGO CONTAINER':'UNCHARTED WRECK'});
+  }
+  G.pings=[]; G.pingId=0; G.groundT=0;
+  fogReset(); fogMark(G.sub.x,G.sub.y,0,620);   // port wyjścia jest znany
+  fogLane(G.wpts,340);                          // trasa skartowana przed wypłynięciem
+  G.cam.pitch=0; G.cam.bank=0; G.cam.prevHdg=G.sub.hdg;
+  seedSnow();   // opad rozsiany wokół nowej pozycji startowej
+  // salvage: cargo floating in the deep, revealed by sonar, collected at its depth
+  G.cargo=[]; G.salvage=[];
+  const CRATES=['SKRZYNIA BADAWCZA','CZARNA SKRZYNKA','KAPSUŁA PRÓBEK','ZASOBNIK PALIWA','SONDA GŁĘBINOWA'];
+  const nS=2+Math.floor(rng()*2)+(m.haz>3?1:0);
+  for(let i=0;i<nS;i++){
+    const w=G.wpts[Math.floor(rng()*G.wpts.length)];
+    G.salvage.push({x:w.x+(rng()-0.5)*700, y:w.y+(rng()-0.5)*700,
+      depth:Math.round(clamp(m.dmin+rng()*(m.dmax-m.dmin)*0.6, m.dmin, m.dmax)),
+      val:40+Math.floor(rng()*90), name:CRATES[Math.floor(rng()*CRATES.length)],
+      seen:-999, sx:0, sy:0, lastPing:-1, taken:false});
+  }
+  // storm
+  const sevs=['CALM','MODERATE','SEVERE','EXTREME'];
+  G.storm={eta: m.storm>0? 90+rng()*80 : Infinity, phase:m.storm>0?'building':'none',
+    sev:sevs[m.storm], wind:20+m.storm*13, swell:1.5+m.storm*1.4, vis:320-m.storm*70,
+    decided:false, active:0};
+  G.conf=68; G.distTravelled=0; G.maxDepth=G.sub.depth;
+  G.dock={align:50,lateral:(rng()<0.5?-1:1)*120,dist:520,mode:null,done:false,assistRisk:false,checks:[false,false,false,false]};
+  G.mode='dive'; G.running=true; G.over=false; G.t=0;
+  G.startTime=performance.now(); G.pausedMs=0;
+  buildRailTicks($('depth-rail'));
+  buildWpDots(); renderChecklist(); logEvClear();
+  $('wp-name').textContent=m.name.toUpperCase();
+  $('dock-name').textContent=m.name.toUpperCase();
+  $('dock-info-name').textContent=m.name.toUpperCase();
+  showTab('dive');
+  toast('DIVE LAUNCHED — '+m.name.toUpperCase());
+}
+
+function buildWpDots(){
+  const c=$('wp-dots'); c.innerHTML='';
+  for(let i=0;i<G.mission.wp;i++){
+    if(i>0){const l=document.createElement('span');l.className='wp-line';c.appendChild(l);}
+    const d=document.createElement('span');d.className='wp-dot';c.appendChild(d);
+  }
+  updateWpDots();
+}
+function updateWpDots(){
+  const dots=[...$('wp-dots').querySelectorAll('.wp-dot')];
+  dots.forEach((d,i)=>d.classList.toggle('done', i<G.wpIdx));
+  $('wp-sub').textContent='WAYPOINT '+Math.min(G.wpIdx+1,G.mission.wp)+' OF '+G.mission.wp;
+}
+
+/* ---------------- AUDIO (sonar + ambient) ---------------- */
+const AU={ctx:null,master:null,humG:null,ambG:null,pingG:null,muted:false,pingT:0.5};
+function initAudio(){
+  if(AU.ctx) return;
+  const C=new (window.AudioContext||window.webkitAudioContext)();
+  AU.ctx=C;
+  AU.master=C.createGain(); AU.master.connect(C.destination);
+  // two sub-buses so the settings panel can balance ping against ambience
+  AU.ambG=C.createGain();  AU.ambG.connect(AU.master);
+  AU.pingG=C.createGain(); AU.pingG.connect(AU.master);
+  // low engine hum: two detuned sines
+  const o1=C.createOscillator(),o2=C.createOscillator();
+  o1.type='sine';o2.type='sine'; o1.frequency.value=46; o2.frequency.value=49.7;
+  AU.humG=C.createGain(); AU.humG.gain.value=0.045;
+  o1.connect(AU.humG); o2.connect(AU.humG); AU.humG.connect(AU.ambG);
+  o1.start(); o2.start();
+  // deep water noise bed
+  const buf=C.createBuffer(1,C.sampleRate*2,C.sampleRate);
+  const d=buf.getChannelData(0);
+  for(let i=0;i<d.length;i++) d[i]=Math.random()*2-1;
+  const src=C.createBufferSource(); src.buffer=buf; src.loop=true;
+  const f=C.createBiquadFilter(); f.type='lowpass'; f.frequency.value=170; f.Q.value=0.6;
+  const ng=C.createGain(); ng.gain.value=0.05;
+  src.connect(f); f.connect(ng); ng.connect(AU.ambG); src.start();
+  applyAudio();
+}
+/* single place that turns settings + mute into gain values */
+function applyAudio(){
+  if(!AU.master) return;
+  const s=G.settings;
+  AU.master.gain.value = AU.muted ? 0 : s.vol/100;
+  AU.ambG.gain.value   = s.amb/100;
+  AU.pingG.gain.value  = s.ping/100;
+}
+function sonarPing(){
+  if(!AU.ctx||AU.muted) return;
+  const C=AU.ctx,t=C.currentTime;
+  const mk=(t0,vol,f0,f1)=>{
+    const o=C.createOscillator(); o.type='sine';
+    o.frequency.setValueAtTime(f0,t0); o.frequency.exponentialRampToValueAtTime(f1,t0+0.55);
+    const g=C.createGain();
+    g.gain.setValueAtTime(0.0001,t0);
+    g.gain.exponentialRampToValueAtTime(vol,t0+0.012);
+    g.gain.exponentialRampToValueAtTime(0.0001,t0+0.85);
+    o.connect(g); g.connect(AU.pingG); o.start(t0); o.stop(t0+1);
+  };
+  mk(t,0.16,1180,870);        // ping
+  mk(t+0.42,0.045,1180,870);  // echo
+}
+function creak(){
+  if(!AU.ctx||AU.muted) return;
+  const C=AU.ctx,t=C.currentTime;
+  const o=C.createOscillator(); o.type='sawtooth';
+  o.frequency.setValueAtTime(70,t); o.frequency.linearRampToValueAtTime(38,t+0.9);
+  const f=C.createBiquadFilter(); f.type='bandpass'; f.frequency.value=140; f.Q.value=8;
+  const g=C.createGain();
+  g.gain.setValueAtTime(0.0001,t); g.gain.exponentialRampToValueAtTime(0.10,t+0.1);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+1.1);
+  o.connect(f); f.connect(g); g.connect(AU.ambG); o.start(t); o.stop(t+1.2);
+}
+function audioKick(){
+  initAudio();
+  if(AU.ctx.state==='suspended') AU.ctx.resume();
+}
+addEventListener('pointerdown',audioKick);
+addEventListener('keydown',audioKick);
+/* retro lives in two places (topnav button + settings panel) — one setter */
+function setRetro(v,announce){
+  G.retro=v; G.settings.retro=v;
+  document.body.classList.toggle('retro',v);
+  $('px-btn').classList.toggle('on',v);
+  syncSettingsUI();
+  if(announce) toast(v?'TRYB RETRO CRT — WŁĄCZONY':'TRYB RETRO CRT — WYŁĄCZONY');
+}
+$('px-btn').onclick=e=>{ e.stopPropagation(); setRetro(!G.retro,true); };
+$('snd-btn').onclick=e=>{
+  e.stopPropagation(); audioKick();
+  AU.muted=!AU.muted; applyAudio();
+  $('snd-btn').textContent=(AU.muted?'🔇':'🔊')+' AUDIO';
+};
+
+/* ---------------- INPUT ---------------- */
+const keys={};
+addEventListener('keydown',e=>{
+  if(e.repeat && !['ArrowLeft','ArrowRight'].includes(e.key)) return;
+  const k=e.key.toLowerCase();
+  if(k==='escape'){ e.preventDefault(); togglePause(); return; }
+  if(G.paused) return;                 // the boat is stopped; controls are too
+  keys[k]=true;
+  if(['arrowup','arrowdown','arrowleft','arrowright',' '].includes(k)) e.preventDefault();
+  if(k==='arrowup'||k==='w') bumpThr(1);
+  if(k==='arrowdown') bumpThr(-1);
+  if(k==='z') nudgeBallast(-10);
+  if(k==='x') nudgeBallast(10);
+  if(k==='s' && e.key==='s') cycleSilent();
+  if(k==='p') emergencyPitch();
+  if(k==='h') stormDecide('hold');
+  if(k==='e') stormDecide('cut');
+  if(k==='tab'){ e.preventDefault(); G.view3d=!G.view3d; toast(G.view3d?'WIDOK TERENU 3D — MAPA NA MINIMAPIE':'WIDOK MAPY — PROFIL GŁĘBOKOŚCI POD SPODEM'); }
+});
+addEventListener('keyup',e=>{ keys[e.key.toLowerCase()]=false; });
+
+function bumpThr(d){ G.sub.thr=clamp(G.sub.thr+d,0,8); }
+$('thr-plus').onclick=()=>bumpThr(1); $('thr-minus').onclick=()=>bumpThr(-1);
+let hdgHold=0;
+$('hdg-left').onmousedown=()=>hdgHold=-1; $('hdg-right').onmousedown=()=>hdgHold=1;
+addEventListener('mouseup',()=>hdgHold=0);
+$('ballast').oninput=e=>{ G.sub.ballast=+e.target.value; };
+function nudgeBallast(d){ G.sub.ballast=clamp(G.sub.ballast+d,-100,100); $('ballast').value=G.sub.ballast; }
+document.querySelectorAll('[data-sr]').forEach(b=>b.onclick=()=>setSilent(+b.dataset.sr));
+function setSilent(v){
+  G.sub.silent=v;
+  document.querySelectorAll('[data-sr]').forEach(b=>b.classList.toggle('active',+b.dataset.sr===v));
+}
+function cycleSilent(){ setSilent((G.sub.silent+1)%3); }
+function emergencyPitch(){
+  if(!G.running) return;
+  G.targetDepth=Math.max(G.mission.dmin*0.55, G.sub.depth-120);
+  G.sub.batt=clamp(G.sub.batt-6,0,100);
+  toast('EMERGENCY POSITIVE PITCH — RAPID ASCENT', true);
+}
+$('btn-pitch').onclick=emergencyPitch;
+
+/* ---------------- UPGRADES / DAMAGE HELPERS ---------------- */
+function upg(){ return G.stats.upg || (G.stats.upg={sonar:false,batt:false,hull:false}); }
+function hullDmg(a){ G.sub.hull=clamp(G.sub.hull + a*(upg().hull?0.7:1), 0, 100); }
+function battCost(a){ return a*(upg().batt?0.75:1); }
+
+/* per-compartment condition — persists between missions, repaired in the shipyard */
+function sys(){ return G.stats.sys || (G.stats.sys={sonar:100,cargo:100,control:100,battery:100,engine:100,ballast:100}); }
+function sysDmg(keys,a){
+  const m=upg().hull?0.7:1;
+  keys.forEach(k=>{ sys()[k]=clamp(sys()[k]-a*m,5,100); });
+}
+function sysF(k){ return 0.55+0.45*sys()[k]/100; }  // 55%..100% wydajności
+
+/* seabed depth at world point — the floor you can hit */
+function seabed(x,y){
+  const m=G.mission;
+  return clamp(m.dmax*0.78 - terr(x,y)*m.dmax*0.30, m.dmin*0.72, m.dmax*1.25);
+}
+
+/* ---------------- ROZPOZNANIE AKWENU (limit of survey) ----------------
+   Karta pokazuje tylko to, co przebadałeś. Reszta jest zaszrafowana — i to nie
+   jest wymysł: na mapach morskich obszary niezbadane naprawdę znaczy się szrafem
+   i podpisem „limit of survey". Tutaj konwencja pokrywa się z fikcją gry (jesteś
+   ślepy, znasz tylko własne odczyty) i z tym, co robi już widok 3D.
+
+   Co odsłania, w kolejności ważności:
+   1. PING — czoło fali odsłania kartę tak, jak rozświetla teren w 3D. Odsłanianie
+      idzie pierścieniem razem z falą, nie skokiem, bo skok byłby kłamstwem:
+      dźwięk nie dolatuje na drugi koniec akwenu natychmiast.
+   2. KADŁUB — wąski pas tuż przy łodzi, żeby PASSIVE (zero pingów) też powoli
+      rysował mapę. Wolno, ale nie do zera.
+   3. TRASA — korytarz wzdłuż waypointów odsłonięty na starcie. Trasa jest
+      *skartowana*, inaczej startowałbyś kompletnie na ślepo. To także zamienia
+      zbaczanie z kursu w realny koszt: poza korytarzem karta jest pusta.
+
+   Siatka 100 m × 200 komórek = 20 km kwadrat zakotwiczony w punkcie startu;
+   najdłuższa misja ma 7.2 km, więc łódź z niej nie ucieknie. 40 kB, bez alokacji
+   w pętli klatki. */
+const FOG_CELL=100, FOG_N=200;
+let fogVer=0, fogPath=null;   // ścieżka niezbadanych komórek + jej cache
+function fogReset(){
+  G.fog=new Uint8Array(FOG_N*FOG_N); fogVer++; fogPath=null;
+  G.fogO={x:G.sub.x-FOG_N*FOG_CELL/2, y:G.sub.y-FOG_N*FOG_CELL/2};
+}
+/* Zaznacza pierścień [r0,r1]. Pierścień, a nie koło, bo fala pingu odsłania tylko
+   to, przez co właśnie przeszła — dzięki temu koszt na klatkę jest stały. */
+function fogMark(x,y,r0,r1){
+  if(!G.fog) return;
+  const O=G.fogO;
+  const i0=Math.max(0,Math.floor((x-r1-O.x)/FOG_CELL)), i1=Math.min(FOG_N-1,Math.ceil((x+r1-O.x)/FOG_CELL));
+  const j0=Math.max(0,Math.floor((y-r1-O.y)/FOG_CELL)), j1=Math.min(FOG_N-1,Math.ceil((y+r1-O.y)/FOG_CELL));
+  const hi=r1*r1, lo=r0>0?r0*r0:-1;
+  for(let j=j0;j<=j1;j++){
+    const dy=O.y+(j+0.5)*FOG_CELL-y, dyy=dy*dy, row=j*FOG_N;
+    for(let i=i0;i<=i1;i++){
+      const dx=O.x+(i+0.5)*FOG_CELL-x, d2=dx*dx+dyy;
+      if(d2<=hi && d2>=lo && !G.fog[row+i]){ G.fog[row+i]=1; fogVer++; }
+    }
+  }
+}
+/* Korytarz wzdłuż łamanej — trasa jest skartowana przed wypłynięciem. */
+function fogLane(pts,r){
+  let px=G.sub.x, py=G.sub.y;
+  for(const w of pts){
+    const d=Math.hypot(w.x-px,w.y-py), n=Math.max(1,Math.ceil(d/(r*0.6)));
+    for(let i=0;i<=n;i++) fogMark(px+(w.x-px)*i/n, py+(w.y-py)*i/n, 0, r);
+    px=w.x; py=w.y;
+  }
+}
+
+/* ---------------- ECHO PULSE ---------------- */
+const PING_SPEED=620; // m/s (game scale)
+/* Jak długo węzeł „pamięta", że przeszła przez niego fala. To jest zegar całego
+   widoku terenu: krawędzi między pingami NIE MA, rysuje je dopiero fala i gasną
+   w tym czasie. Wartość nie jest dowolna — węzeł tuż przy dziobie (70 m) fala
+   trafia po 0.11 s, więc jego ślad musi dożyć następnego pingu (2.6 s + 0.11 s),
+   inaczej pole przed dziobem mruga akurat tam, gdzie się patrzy. */
+const EDGE_DECAY=2.8;
+function echoFadeT(){ return upg().sonar?9:6; }
+function firePing(){
+  const S=G.sub;
+  const range=(S.silent===2?1500:900)*(upg().sonar?1.4:1)*(0.6+0.4*sys().sonar/100);
+  G.pings.push({x:S.x,y:S.y,t0:G.t,range,id:++G.pingId,rev:0});
+  if(S.silent===2) S.batt=clamp(S.batt-battCost(0.35),0,100);
+  sonarPing(); G.pingFlash=1;
+}
+function updatePings(){
+  const S=G.sub;
+  const contacts=[...G.hazards, ...(G.salvage||[]).filter(s=>!s.taken)];
+  // ping żyje dłużej niż jego czoło: bliskie węzły trafia od razu, a ich ślad
+  // ma jeszcze EDGE_DECAY sekund do dogaśnięcia
+  G.pings=G.pings.filter(p=>G.t-p.t0 <= p.range/PING_SPEED + EDGE_DECAY);
+  for(const p of G.pings){
+    const rr=(G.t-p.t0)*PING_SPEED;
+    // karta odsłania się razem z czołem fali — pierścieniem, nie skokiem
+    // Kartowanie dna wymaga mocniejszego powrotu niż samo wykrycie kontaktu,
+    // więc promień rozpoznania jest krótszy od zasięgu echa. To także sprawia,
+    // że SONAR ARRAY (×1.4 zasięgu) realnie przyspiesza rysowanie mapy.
+    const survey=Math.min(rr,p.range*0.55);
+    if(survey>p.rev){ fogMark(p.x,p.y,p.rev,survey); p.rev=survey; }
+    for(const h of contacts){
+      if(h.lastPing===p.id) continue;
+      const d=Math.hypot(h.x-p.x,h.y-p.y);
+      if(d<=rr && d<=p.range){ h.lastPing=p.id; h.seen=G.t; h.sx=h.x; h.sy=h.y; }
+    }
+  }
+  // passive listening: continuous short-range contact
+  if(S.silent===1){
+    for(const h of contacts){
+      if(Math.hypot(h.x-S.x,h.y-S.y)<420){ h.seen=G.t; h.sx=h.x; h.sy=h.y; }
+    }
+  }
+}
+
+/* ---------------- STORM ---------------- */
+function stormDecide(choice){
+  if(!G.running||G.mode!=='dive') return;
+  if(G.storm.phase!=='imminent'||G.storm.decided) return;
+  G.storm.decided=true;
+  if(choice==='hold'){
+    // brave: hull strain, keeps course
+    hullDmg(16); sysDmg(['sonar'],6);
+    G.conf=clamp(G.conf-18,20,100);
+    toast('HOLDING COURSE THROUGH THE SURGE — HULL STRAIN RISING', true);
+  } else {
+    // safe: costs battery + distance drift east
+    G.sub.batt=clamp(G.sub.batt-battCost(9),0,100);
+    G.sub.x+=420;
+    toast('CUTTING EAST AROUND THE SURGE — BATTERY DRAIN, POSITION OFFSET');
+  }
+}
+$('dec-hold').onclick=()=>stormDecide('hold');
+$('dec-cut').onclick=()=>stormDecide('cut');
+
+function updateStorm(dt){
+  const s=G.storm;
+  if(s.phase==='none'){ setDecisionVisible(false); return; }
+  if(s.phase==='building'){
+    s.eta-=dt;
+    if(s.eta<=45){ s.phase='imminent'; toast('STORM SURGE IMMINENT — HOLD COURSE (H) OR CUT EAST (E)?', true); }
+  } else if(s.phase==='imminent'){
+    s.eta-=dt;
+    if(s.eta<=0){
+      s.phase='active'; s.active=30+G.mission.storm*10;
+      if(!s.decided){ // indecision is the worst option
+        hullDmg(24); sysDmg(['sonar','control'],8);
+        G.conf=clamp(G.conf-25,15,100);
+        toast('SURGE HIT WITH NO PLAN — SEVERE HULL STRAIN', true);
+      }
+    }
+  } else if(s.phase==='active'){
+    s.active-=dt;
+    // buffeting
+    G.sub.hdg+= (Math.sin(G.t*2.1)*8)*dt;
+    hullDmg((G.storm.decided?1.1:2.2)*dt);
+    G.conf=clamp(G.conf-2*dt,15,100);
+    if(s.active<=0){
+      s.phase='passed'; G.stormsSurvived++;
+      toast('STORM SURGE PASSED — SEAS SETTLING');
+    }
+  } else if(s.phase==='passed'){
+    G.conf=clamp(G.conf+3*dt,0,88);
+  }
+  setDecisionVisible(s.phase==='imminent'&&!s.decided);
+}
+function setDecisionVisible(v){
+  $('dec-hold').style.opacity=v?1:0.35; $('dec-cut').style.opacity=v?1:0.35;
+  $('dec-hold').disabled=!v; $('dec-cut').disabled=!v;
+  $('dec-text').textContent=v?'HOLD COURSE OR CUT EAST':'NO DECISION PENDING';
+}
+
+/* ---------------- SIM UPDATE (dive) ---------------- */
+function updateDive(dt){
+  const S=G.sub, M=G.mission;
+  // heading control (held keys / buttons)
+  const turn=38*dt*(G.settings.sens/100);
+  if(keys['arrowleft']||hdgHold<0) S.hdg-=turn;
+  if(keys['arrowright']||hdgHold>0) S.hdg+=turn;
+  S.hdg=(S.hdg%360+360)%360;
+  // speed eases toward throttle setting (0.95 kn per notch)
+  const tgt=S.thr*0.95;
+  S.spd=lerp(S.spd,tgt,clamp(1.4*dt,0,1));
+  // silent running caps speed; engine damage lowers the ceiling
+  const spdCap=(S.silent===1?4.5:8)*sysF('engine');
+  S.spd=Math.min(S.spd, spdCap);
+  const spd=S.spd;
+  // move (game scale: 1 kn ≈ 26 m/min game-accelerated => px==meters)
+  const mps=spd*3.4;
+  const a=d2r(S.hdg-90);
+  S.x+=Math.cos(a)*mps*dt; S.y+=Math.sin(a)*mps*dt;
+  G.distTravelled+=mps*dt;
+  // wąski pas przy kadłubie: w PASSIVE (zero pingów) to jedyne, co rysuje kartę
+  fogMark(S.x,S.y,0,170*(0.6+0.4*sys().sonar/100));
+  // depth follows ballast + emergency target
+  const wantDepth = G.targetDepth - S.ballast*1.6;
+  S.depth=lerp(S.depth,clamp(wantDepth,40,M.dmax+140),clamp(0.5*dt*sysF('ballast'),0,1));
+  G.maxDepth=Math.max(G.maxDepth,S.depth);
+  // hull pressure tracks depth vs rated band + storm effects (handled there)
+  const rated=M.dmax;
+  const base=clamp((S.depth/rated)*62,0,100);
+  S.hull=lerp(S.hull, Math.max(base, S.hull), 1) ; // storms only push it up; depth sets floor
+  S.hull=Math.max(S.hull, base);
+  if(S.depth>rated) S.hull=clamp(S.hull+8*dt,0,100);
+  // seabed grounding — the floor is real now
+  const sb=seabed(S.x,S.y);
+  if(S.depth>sb-6){
+    S.depth=sb-6;
+    hullDmg(12*dt); sysDmg(['ballast','engine'],4*dt);
+    S.spd=Math.max(0,S.spd*(1-1.6*dt));
+    G.groundT-=dt;
+    if(G.groundT<=0){ G.groundT=2.5; toast('DNO! SZURANIE PO GRZBIECIE — WYNURZ SIĘ (balast / P)', true); creak(); }
+  }
+  // battery drain: throttle + active sonar
+  const drain=(0.14+S.thr*0.075+(S.silent===2?0.10:S.silent===1?0.03:0.06))*(1+(100-sys().battery)/150);
+  S.batt=clamp(S.batt-battCost(drain)*dt,0,100);
+  // sonar confidence: better shallow & active; degraded array = weaker signal
+  const confTgt=((S.silent===2?80:S.silent===1?52:64)-(S.depth/rated)*18)*(0.7+0.3*sys().sonar/100);
+  G.conf=lerp(G.conf,clamp(confTgt,15,95),clamp(0.25*dt,0,1));
+  // hazards drift
+  for(const h of G.hazards){ h.x+=h.vx*dt*8; h.y+=h.vy*dt*8; }
+  // hazard collision — only if you're at its depth; dive under or climb over it
+  for(const h of G.hazards){
+    const d=Math.hypot(h.x-S.x,h.y-S.y);
+    if(d<h.r && Math.abs(S.depth-h.depth)<45){
+      hullDmg(22); sysDmg(['cargo','engine'],8);
+      h.x+=600;h.y-=600; h.seen=G.t; h.sx=h.x; h.sy=h.y;
+      toast('IMPACT — '+h.name+' @ '+h.depth+' m', true); creak();
+    }
+  }
+  // salvage pickup — podpłyń na głębokość ładunku
+  for(const s of G.salvage){
+    if(s.taken) continue;
+    const d=Math.hypot(s.x-S.x,s.y-S.y);
+    if(d<75 && Math.abs(S.depth-s.depth)<40){
+      if(G.cargo.length<6){
+        s.taken=true; G.cargo.push({name:s.name,val:s.val});
+        toast('ŁADUNEK PRZEJĘTY — '+s.name+' (+'+s.val+' CR w doku)');
+      } else if(!s.warned){ s.warned=true; toast('MAGAZYN PEŁNY — 6/6 SLOTÓW', true); }
+    }
+  }
+  updatePings();
+  // waypoint progress
+  const w=G.wpts[G.wpIdx];
+  if(w){
+    const d=Math.hypot(w.x-S.x,w.y-S.y);
+    if(d<130){
+      G.wpIdx++;
+      updateWpDots();
+      if(G.wpIdx>=G.wpts.length){ enterDock(); }
+      else toast('WAYPOINT '+G.wpIdx+' REACHED');
+    }
+  }
+  updateStorm(dt);
+  // fail states
+  if(S.hull>=100) endDive(false,'HULL BREACH','Pressure exceeded structural limits at '+Math.round(S.depth)+' m.');
+  if(S.batt<=0) endDive(false,'BATTERY DEPLETED','Kestrel-7 went dark '+fmtB(distToGoal())+' from the dock.');
+}
+function distToGoal(){
+  const w=G.wpts[G.wpts.length-1];
+  return Math.hypot(w.x-G.sub.x,w.y-G.sub.y);
+}
+
+/* ---------------- DOCK APPROACH ---------------- */
+function enterDock(){
+  G.mode='dock';
+  G.dock.dist=520; G.dock.align=50;
+  G.dock.roll=0; G.dock.prevLat=G.dock.lateral;
+  logEv('Beacon acquired');
+  logEv('Current shifted east');
+  showTab('dive'); // routes to dock screen via mode
+  toast('FINAL APPROACH — '+G.mission.name.toUpperCase());
+}
+$('dock-back').onclick=()=>{ if(G.mode==='dock'){ G.mode='dive'; G.wpIdx=G.wpts.length-1; showTab('dive'); } };
+$('btn-abort').onclick=()=>{ if(G.mode==='dock') endDive(false,'APPROACH ABORTED','Docking sequence cancelled by pilot.'); };
+$('btn-manual').onclick=()=>{ G.dock.mode='manual'; toast('MANUAL DOCK — steer with ← → , throttle ↑ ↓'); };
+$('btn-assist').onclick=()=>{
+  G.dock.mode='assist'; G.dock.assistRisk=true;
+  toast('ASSISTED ALIGNMENT ENGAGED — higher hull risk', true);
+};
+
+function updateDock(dt){
+  const S=G.sub, D=G.dock;
+  const current=(1.2+G.mission.storm*0.35)*(1+(100-sys().control)/250);
+  // lateral drift from current (east = +x)
+  D.lateral+=current*14*dt;
+  if(D.mode==='assist'){
+    D.lateral=lerp(D.lateral,0,clamp(1.5*dt,0,1));
+    hullDmg(1.6*dt); sysDmg(['engine'],0.8*dt); // thrusters strain
+    S.batt=clamp(S.batt-battCost(0.5)*dt,0,100);
+  } else {
+    if(keys['arrowleft']) D.lateral-=95*dt;
+    if(keys['arrowright']) D.lateral+=95*dt;
+  }
+  if(keys['arrowup']) S.thr=clamp(S.thr+2*dt,0,8);
+  if(keys['arrowdown']) S.thr=clamp(S.thr-2*dt,0,8);
+  S.spd=lerp(S.spd,S.thr*0.95,clamp(1.5*dt,0,1));
+  D.dist-=S.spd*9*dt;
+  S.batt=clamp(S.batt-battCost(0.1+S.thr*0.05)*dt,0,100);
+  // przechył kadru od tempa znoszenia — widać, że prąd cię bierze, zanim spadnie ALIGN
+  const latRate=(D.lateral-D.prevLat)/Math.max(dt,0.001);
+  D.prevLat=D.lateral;
+  D.roll=lerp(D.roll, clamp(-latRate*0.0011,-0.09,0.09), clamp(4*dt,0,1));
+  // alignment score follows |lateral|
+  const alignTgt=clamp(100-Math.abs(D.lateral)*0.9,0,100);
+  D.align=lerp(D.align,alignTgt,clamp(2*dt,0,1));
+  // checklist
+  const c=[Math.abs(G.sub.ballast)<=30, true, S.depth<G.mission.dmin+10 || S.depth<190, D.align>=85];
+  for(let i=0;i<4;i++){ if(c[i]&&!D.checks[i]){ D.checks[i]=true; renderChecklist();
+    if(i===3) logEv('Corridor clear'); } }
+  // walls of the corridor
+  if(Math.abs(D.lateral)>170){ hullDmg(10*dt); }
+  // arrival
+  if(D.dist<=38){
+    if(D.align>=80 && S.spd<=3.4){
+      const nice=D.align>=92 && S.spd<=2.2;
+      endDive(true, nice?'PERFECT DOCKING':'DOCKED',
+        nice?'Smooth approach under heavy surge. Minimal hull strain.':'Capture clamps engaged. Some scuffs on the hull plating.', nice);
+    } else if(D.align>=60){
+      hullDmg(18); sysDmg(['engine','control'],6); D.dist=170; D.lateral*=1.4;
+      toast('CAPTURE MISSED — CIRCLING FOR ANOTHER PASS', true);
+      logEv('Near miss — re-approach');
+      if(S.hull>=100){ endDive(false,'HULL BREACH','Struck the capture cradle at speed.'); }
+    } else {
+      endDive(false,'DOCKING FAILED','Missed the capture zone entirely. Kestrel-7 recovered by tow.');
+    }
+  }
+  if(S.hull>=100) endDive(false,'HULL BREACH','Structural failure during final approach.');
+  if(S.batt<=0) endDive(false,'BATTERY DEPLETED','Went dark inside the approach corridor.');
+}
+
+function renderChecklist(){
+  const names=['BALLAST TRIM STABLE','PORT THRUSTER READY','DEPTH UNDER 190 m','ALIGN TO BEACON'];
+  const el=$('chk-list'); el.innerHTML='';
+  names.forEach((n,i)=>{
+    const done=G.dock.checks[i];
+    const div=document.createElement('div');
+    div.className='chk '+(done?'done':'todo');
+    div.innerHTML='<span class="ic">'+(done?'✓':(i+1))+'</span>'+n;
+    el.appendChild(div);
+  });
+}
+function logEvClear(){ $('evlog').innerHTML=''; }
+function logEv(msg){
+  const el=$('evlog');
+  const t=fmtT((performance.now()-G.startTime-G.pausedMs)/1000);
+  el.innerHTML+='<div><span class="tm">'+t+'</span>'+msg+'</div>';
+}
+
+/* ---------------- END OF DIVE ---------------- */
+function endDive(success,title,sub,perfect=false){
+  if(G.over) return;
+  G.over=true; G.running=false;
+  const elapsed=(performance.now()-G.startTime-G.pausedMs)/1000;  // paused time doesn't count
+  const time=fmtT(elapsed);
+  const st=G.stats, M=G.mission;
+  st.dist+=G.distTravelled/1000;
+  st.deepest=Math.max(st.deepest,Math.round(G.maxDepth));
+  st.storms+=G.stormsSurvived;
+  let credits=0, badge=null;
+  if(success){
+    st.dockings++;
+    credits=M.credits;
+    if(G.sub.batt>=50 && M.reward.includes('reserve ≥ 50%')) credits=Math.round(credits*1.25);
+    if(G.sub.batt>=60 && M.reward.includes('reserve ≥ 60%')) credits=Math.round(credits*1.4);
+    const cargoVal=(G.cargo||[]).reduce((a,c)=>a+c.val,0);
+    if(cargoVal>0){ credits+=cargoVal; sub+=' Ładunek sprzedany: +'+cargoVal+' CR.'; }
+    st.credits+=credits;
+    st.clearance=1+Math.floor(st.dockings/3);
+    if(st.bestBatt===null||G.sub.batt>st.bestBatt) st.bestBatt=Math.round(G.sub.batt);
+    if(!st.best||elapsed<st.best.secs) st.best={secs:elapsed,time,route:M.name,depth:Math.round(G.maxDepth)};
+    if(perfect) badge='STEADY HAND';
+    else if(G.stormsSurvived>0) badge='STORM RUNNER';
+  }
+  G.cargo=[];
+  st.dives.unshift({date:'Today',dest:M.name,outcome:success?'Docked':(title==='APPROACH ABORTED'?'Aborted':'Aborted'),
+    oc:success?'Docked':'Aborted', time, depth:Math.round(G.maxDepth), note:success?sub:null});
+  if(st.dives.length>7) st.dives.pop();
+  // overlay
+  $('ov-title').textContent=title; $('ov-title').className=success?'good':'bad';
+  $('ov-sub').textContent=sub;
+  $('ov-badge-slot').innerHTML=badge?'<div class="ov-badge">⚓ BADGE: '+badge+'</div>':'';
+  $('ov-stats').innerHTML=
+    stat(time,'TIME')+stat(Math.round(G.maxDepth)+' m','MAX DEPTH')+
+    stat(Math.round(G.sub.batt)+'%','BATTERY LEFT')+
+    (success?stat('+'+credits,'CREDITS'):stat(Math.round(G.sub.hull)+'%','HULL PRESSURE'));
+  $('overlay').classList.add('show');
+  function stat(v,l){ return '<div class="s"><div class="v">'+v+'</div><div class="l">'+l+'</div></div>'; }
+}
+$('ov-again').onclick=()=>{ $('overlay').classList.remove('show'); G.mode='idle'; showTab('missions'); };
+$('ov-log').onclick=()=>{ $('overlay').classList.remove('show'); G.mode='idle'; showTab('logbook'); };
+
+/* ---------------- HUD ---------------- */
+function updateHUD(){
+  const S=G.sub;
+  $('h-depth').textContent=Math.round(S.depth);
+  // clearance to the seabed — the game already grounds you on it, so show it
+  const clear=Math.max(0,seabed(S.x,S.y)-S.depth);
+  const ce=$('h-clear');
+  ce.textContent=Math.round(clear)+' m';
+  ce.className=clear<25?'bad':clear<60?'warn':'';
+  const rail=$('depth-rail');
+  rail.classList.toggle('crit', clear<25 || S.hull>78);
+  paintRail(rail);
+  $('h-bearing').textContent=String(Math.round(S.hdg)%360).padStart(3,'0')+'°';
+  $('h-speed').textContent=S.spd.toFixed(1)+' kn';
+  $('h-batt').textContent=Math.round(S.batt)+'%';
+  $('h-hull').textContent=Math.round(S.hull)+'%';
+  setPips($('p-batt'),S.batt/100, S.batt<25?'bad':null);
+  setPips($('p-hull'),S.hull/100, S.hull>70?'bad':'warn');
+  setPips($('p-conf'),G.conf/100,null);
+  $('conf-val').textContent=Math.round(G.conf)+'%';
+  const sevEl=$('h-storm'), ph=G.storm.phase;
+  const sev = ph==='none'?'CALM': ph==='passed'?'PASSED': G.storm.sev;
+  sevEl.textContent=sev;
+  sevEl.className='sev'+(sev==='CALM'||sev==='PASSED'?' calm':sev==='MODERATE'?' mod':'');
+  // throttle bar
+  const tr=$('thr-track');
+  if(tr.children.length!==9){ tr.innerHTML=''; for(let i=0;i<9;i++){const s=document.createElement('span');s.className='bar-seg';tr.appendChild(s);} }
+  [...tr.children].forEach((s,i)=>{ s.className='bar-seg'+(i<G.sub.thr?' on':'')+(i===G.sub.thr?' cur':''); });
+  $('thr-read').textContent=(Math.min(S.spd,S.thr*0.95)).toFixed(1)+' kn';
+  $('hdg-read').textContent=String(Math.round(S.hdg)%360).padStart(3,'0')+'°';
+  $('bal-read').textContent=S.ballast+'%';
+  // bottom bar
+  const w=G.wpts[Math.min(G.wpIdx,G.wpts.length-1)];
+  if(w) $('wp-dist').textContent=fmtB(Math.hypot(w.x-S.x,w.y-S.y));
+  const st=G.storm;
+  if(st.phase==='none'){ $('storm-title').innerHTML='CONDITIONS NOMINAL'; $('storm-title').style.color='var(--green)'; }
+  else if(st.phase==='active'){ $('storm-title').innerHTML='⚠ STORM SURGE ACTIVE'; $('storm-title').style.color='var(--orange)'; }
+  else if(st.phase==='passed'){ $('storm-title').innerHTML='STORM PASSED'; $('storm-title').style.color='var(--green)'; }
+  else { $('storm-title').innerHTML='⚠ STORM SURGE IN <span id="storm-eta">'+fmtT(st.eta)+'</span>'; $('storm-title').style.color='var(--orange)'; }
+  $('st-wind').textContent=Math.round(st.wind)+' kn';
+  $('st-swell').textContent=st.swell.toFixed(1)+' m';
+  $('st-vis').textContent=Math.round(st.vis)+' m';
+  const frac = st.phase==='active'? st.active/60 : st.phase==='building'||st.phase==='imminent'? 1-st.eta/214 : 0;
+  setPips($('storm-bar'),clamp(frac,0,1),'bad');
+  // dock info
+  if(G.mode==='dock'){
+    $('di-align').textContent=Math.round(G.dock.align)+'%';
+    $('di-cur').textContent=(1.2+G.mission.storm*0.35).toFixed(1)+' kn EAST';
+  }
+}
+
+/* ================= WIDOK 3D: KAMERA + OPAD MORSKI =================
+   Kamera nie jest sztywna: pochyla się przy zanurzaniu i przechyla w skręcie,
+   dzięki czemu perspektywa reaguje na to, co robi łódź. Opad morski to jedyne
+   źródło ruchu w kadrze, gdy dno jest płaskie — bez niego widok wygląda martwo. */
+const SNOW_N=210, SNOW_Z=1100, SNOW_LAT=520, SNOW_DV=110;
+
+/* Paleta terenu 3D. Kolory są skwantowane (jasność stoku × rząd) i policzone raz,
+   żeby oczka o tej samej barwie dało się zebrać w jedną ścieżkę i wypełnić jednym
+   fill() — 336 osobnych wypełnień na klatkę kosztowało ~20 fps. */
+const Q_SH=5, Q_LIT=6, Q_PT=3;
+let q3dPal=null, q3dLit=null, q3dLitD=null, q3dPt=null;
+/* Rzędy siatki 3D rozłożone GEOMETRYCZNIE, nie co stały metraż. Perspektywa
+   ściska dal: przy równym kroku 52 m pierwszy pas oczek zajmował na ekranie
+   269 px, a ostatni 8 px — 32× różnicy, i to była ta „zgrubność" przy dziobie.
+   Stały iloraz daje 58 / 26 px przy tej samej liczbie rzędów i tym samym zasięgu.
+   Skutek uboczny, który trzeba było dopłacić: oczka z wysokich zrobiły się
+   szerokie, więc kolumny musiały zgęstnieć razem z rzędami (19 -> 29), inaczej
+   siatka czyta się jak poziome pasy. Największy krok rzędu to ~149 m — to on
+   ogranicza od dołu długość fali, jaką wolno dołożyć do terr(). */
+const T3_ROWS=24, T3_COLS=29, T3_XSTEP=34, T3_ZNEAR=70, T3_ZFAR=1266;
+const T3_Z=(()=>{
+  const k=Math.pow(T3_ZFAR/T3_ZNEAR,1/(T3_ROWS-1)), a=[];
+  for(let r=0;r<T3_ROWS;r++) a.push(T3_ZNEAR*Math.pow(k,r));
+  return a;
+})();
+/* Mgła z odległości, nie z numeru rzędu: po zmianie rozstawu indeks przestał
+   być miarą dystansu, a rząd 23 leży 4× dalej niż wynikałoby z proporcji. */
+const T3_NEAR=T3_Z.map(z=>Math.exp(-(z-T3_ZNEAR)/520));
+
+/* Trzy palety, bo teren rysuje się teraz w trzech warstwach o różnych zadaniach:
+   q3dPal — WYPEŁNIENIA. Prawie nieprzezroczyste i prawie czarne: ich jedyna praca
+     to zasłanianie (painter's algorithm). Mają być sylwetką, nie powierzchnią —
+     inaczej chmura punktów tonie w tle, które ją przekrzykuje.
+   q3dPt  — PUNKTY w węzłach. Warstwa trwała: to jedyne, co widać między pingami,
+     więc to ONA niesie ostrzeżenie o głębokości (pasmo 1 = pomarańcz).
+   q3dLit / q3dLitD — KRAWĘDZIE. Rysuje je wyłącznie przechodząca fala i gasną
+     w EDGE_DECAY. Wariant D dla oczek na naszej głębokości. */
+function build3dPal(nears){
+  q3dPal=[[],[]]; q3dPt=[[],[]];
+  for(let r=0;r<nears.length;r++){
+    const near=nears[r];
+    const a=(0.86+0.13*near).toFixed(3);
+    for(let s=0;s<Q_SH;s++){
+      const sh=s/(Q_SH-1);
+      // Prawie kolor toni. Sylwetkę rysują PUNKTY, nie wypełnienie — wypełnienie
+      // ma tylko zasłaniać. Pasmo groźne dostaje ledwie ciepłe przesunięcie, bo
+      // ostrzeżenie niosą węzły i krawędzie, a nie wielka rdzawa plama.
+      q3dPal[0][r*Q_SH+s]='rgba('+(3+7*sh|0)+','+(10+12*sh|0)+','+(15+15*sh|0)+','+a+')';
+      q3dPal[1][r*Q_SH+s]='rgba('+(14+20*sh|0)+','+(9+7*sh|0)+','+(9+5*sh|0)+','+a+')';
+    }
+    for(let b=0;b<Q_PT;b++){
+      const hot=b/(Q_PT-1);
+      q3dPt[0][r*Q_PT+b]='rgba('+(120+110*hot|0)+','+(220+30*hot|0)+','+(238+17*hot|0)+','
+        +clamp(0.46+0.44*near+0.22*hot,0,1).toFixed(3)+')';
+      q3dPt[1][r*Q_PT+b]='rgba(255,'+(122+68*hot|0)+','+(72+88*hot|0)+','
+        +clamp(0.70+0.26*near+0.12*hot,0,1).toFixed(3)+')';
+    }
+  }
+  q3dLit=[]; q3dLitD=[];
+  for(let s=0;s<Q_LIT;s++){
+    const t=(s/(Q_LIT-1)).toFixed(3);
+    q3dLit[s] ='rgba(198,250,255,'+t+')';
+    q3dLitD[s]='rgba(255,150,95,'+t+')';
+  }
+}
+function seedSnow(){
+  G.snow.length=0;
+  for(let i=0;i<SNOW_N;i++) G.snow.push(spawnFlake(true));
+}
+/* forward=false → cząstka wpływa do kadru od przodu, nie materializuje się w środku */
+function spawnFlake(anywhere){
+  const S=G.sub, a=d2r(S.hdg-90);
+  const dirx=Math.cos(a), diry=Math.sin(a), perpx=-diry, perpy=dirx;
+  const z=anywhere?Math.random()*SNOW_Z:SNOW_Z*(0.85+Math.random()*0.15);
+  const lat=(Math.random()*2-1)*SNOW_LAT;
+  return {
+    x:S.x+dirx*z+perpx*lat, y:S.y+diry*z+perpy*lat,
+    d:S.depth+(Math.random()*2-1)*SNOW_DV,
+    s:0.5+Math.random()*1.1,              // rozmiar/jasność — daje paralaksę
+    v:2.2+Math.random()*3.4,              // prędkość opadania
+  };
+}
+function updateSnow(dt){
+  if(!G.snow.length) seedSnow();
+  const S=G.sub, a=d2r(S.hdg-90);
+  const dirx=Math.cos(a), diry=Math.sin(a), perpx=-diry, perpy=dirx;
+  // sztorm miesza toń: opad zaczyna iść bokiem, nie w dół
+  const gust=G.storm.phase==='active' ? G.mission.storm*9 : 0;
+  const gx=gust*Math.sin(G.t*0.7), gy=gust*Math.cos(G.t*0.53);
+  // W dokowaniu S.x/S.y stoją w miejscu (postęp mierzy D.dist), więc opad musi
+  // płynąć na nas sam — inaczej podejście wygląda jak stop-klatka.
+  const adv=G.mode==='dock' ? S.spd*9*dt : 0;
+  for(let i=0;i<G.snow.length;i++){
+    const p=G.snow[i];
+    p.d+=p.v*dt; p.x+=gx*dt-dirx*adv; p.y+=gy*dt-diry*adv;
+    const rx=p.x-S.x, ry=p.y-S.y;
+    const along=rx*dirx+ry*diry, lat=rx*perpx+ry*perpy;
+    if(along<-40||along>SNOW_Z||Math.abs(lat)>SNOW_LAT||Math.abs(p.d-S.depth)>SNOW_DV)
+      G.snow[i]=spawnFlake(false);
+  }
+}
+function updateCam(dt){
+  const S=G.sub, C=G.cam;
+  // przechył: z prędkości kątowej, nie z wciśniętego klawisza — wychodzi płynnie
+  const dh=((S.hdg-C.prevHdg+540)%360)-180;
+  C.prevHdg=S.hdg;
+  const rate=dt>0.0001?dh/dt:0;
+  C.bank=lerp(C.bank, clamp(-rate*0.0018,-0.11,0.11), clamp(3.2*dt,0,1));
+  // pochylenie: z realnej różnicy do głębokości docelowej, więc łapie i balast,
+  // i awaryjne wynurzenie. Zanurzasz się → dziób w dół → horyzont ucieka w górę.
+  const err=(G.targetDepth-S.ballast*1.6)-S.depth;
+  const heave=G.storm.phase==='active' ? Math.sin(G.t*1.25)*2.6*G.mission.storm : 0;
+  C.pitch=lerp(C.pitch, clamp(-err*0.16,-24,24)+heave, clamp(2.4*dt,0,1));
+}
+/* Rysuje opad przez podaną projekcję. Zwraca liczbę widocznych cząstek. */
+function drawSnow(ctx,proj,dp,alpha){
+  const S=G.sub, a=d2r(S.hdg-90);
+  const dirx=Math.cos(a), diry=Math.sin(a), perpx=-diry, perpy=dirx;
+  ctx.fillStyle='rgba(178,232,240,1)';
+  for(const p of G.snow){
+    const rx=p.x-S.x, ry=p.y-S.y;
+    const along=rx*dirx+ry*diry;
+    if(along<8) continue;
+    const lat=rx*perpx+ry*perpy;
+    const pt=proj(lat,p.d,along);
+    const fall=1-along/SNOW_Z;                       // bliżej = jaśniej i większa
+    ctx.globalAlpha=alpha*fall*fall*(0.16+0.32*p.s);
+    const sz=Math.max(0.6*dp, p.s*2.2*dp*fall);
+    ctx.fillRect(pt[0]-sz/2, pt[1]-sz/2, sz, sz);
+  }
+  ctx.globalAlpha=1;
+}
+
+/* ================= SPRITE'Y KONTAKTÓW =================
+   Sprite to tablica stringów: '.' puste, '1'..'3' = jasność. Kolor wstrzykuje
+   wywołujący (pomarańcz = zagrożenie, zieleń = ładunek), więc jeden zestaw
+   kształtów obsługuje oba i w repo nie ląduje żaden plik binarny ani data URI.
+
+   Diegetycznie to NIE są modele, tylko rozdzielczość echa: z daleka dostajesz
+   romb, z bliska sonar rozdziela kształt i podaje nazwę. Zasięg rozdzielenia
+   zależy od anteny — dlatego ulepszenie sonaru widać, a nie tylko czyta w opisie. */
+const SPR={
+  CRATE:[            // skrzynia badawcza — pudło z krzyżulcami
+    '............','.3333333333.','.3222222223.','.3232222323.',
+    '.3223223223.','.3222332223.','.3222332223.','.3223223223.',
+    '.3232222323.','.3222222223.','.3333333333.','............'],
+  FUEL:[             // zasobnik paliwa — beczka z zaworem i obręczami
+    '....3333....','....3223....','..33333333..','..32222223..',
+    '..32222223..','..33333333..','..32222223..','..32222223..',
+    '..33333333..','..32222223..','..33333333..','............'],
+  BLACKBOX:[         // czarna skrzynka — rejestrator z pałąkiem i nóżkami
+    '....3333....','....3..3....','.3333333333.','.3222222223.',
+    '.3233333323.','.3232222323.','.3232222323.','.3233333323.',
+    '.3222222223.','.3333333333.','..3......3..','............'],
+  POD:[              // kapsuła próbek — owal z obręczą
+    '....3333....','..33222233..','.3322222233.','.3222332223.',
+    '.3223223223.','.3223223223.','.3222332223.','.3322222233.',
+    '..33222233..','....3333....','............','............'],
+  PROBE:[            // sonda głębinowa — stożek, kadłub, stateczniki
+    '.....33.....','....3223....','...322223...','...322223...',
+    '...322223...','.3332222333.','.3232222323.','...322223...',
+    '...322223...','....3333....','............','............'],
+  CONTAINER:[        // dryfujący kontener — długi prostopadłościan z żebrami
+    '............','............','333333333333','322222222223',
+    '323232323233','323232323223','323232323223','322222222223',
+    '333333333333','............','............','............'],
+  WRECK:[            // niezbadany wrak — przechylony, rozerwany kadłub
+    '..........33','........3323','......332223','....33222223',
+    '..3322222233','.322222223..','.32222223...','.3222233....',
+    '.332233.....','..3333......','............','............'],
+  /* Sceneria dna. Podstawa leży na ostatnim wierszu, bo sprite jest kotwiczony
+     dołem do dna, nie środkiem — kamień ma stać, nie lewitować. */
+  ROCK1:[            // głaz — obtoczony, przysadzisty
+    '............','............','............','............',
+    '....3333....','..332222233.','.32222222223','.32222222223',
+    '.32222222223','.32222222223','.32222222223','.33333333333'],
+  ROCK2:[            // wychodnia — ostry występ skalny
+    '.......3....','......333...','.....32223..','.....32223..',
+    '....3222223.','...32222223.','..322222223.','.3222222223.',
+    '.32222222223','.32222222223','.32222222223','.33333333333'],
+  ROCK3:[            // ława skalna — niska i szeroka
+    '............','............','............','............',
+    '............','............','............','...3333333..',
+    '.3322222233.','322222222223','322222222223','333333333333'],
+};
+
+/* --- Głazy i wychodnie ----------------------------------------------------
+   Nie mają listy ani miejsca w stanie gry: pozycję, rozmiar i kształt daje
+   hash komórki świata, więc są wszędzie, są deterministyczne i nie kosztują
+   ani bajta pamięci. Po co w ogóle: w kadrze 3D nie ma dziś NICZEGO o znanym
+   rozmiarze, więc nie da się ocenić, czy grzbiet jest 200 czy 800 m przed
+   dziobem — jeden kamień wielkości łodzi to naprawia.
+   To sceneria, nie kontakt: stąd szarość zamiast pomarańczu i zieleni, brak
+   opisu i brak echa na mapie. Kolizji też nie ma — leżą na dnie, którego
+   i tak nie wolno dotknąć. Znikają, gdy skala spadnie poniżej 1 piksela
+   ekranu na piksel sprite'a: to ta sama zasada co przy kontaktach — z daleka
+   sonar po prostu tego nie rozdziela. */
+const ROCK_CELL=220, ROCK_SPR=['ROCK1','ROCK2','ROCK3'];
+function rhash(i,j,s){
+  let h=Math.imul(i,374761393)^Math.imul(j,668265263)^Math.imul(s,362437);
+  h=Math.imul(h^h>>>13,1274126177);
+  return ((h^h>>>16)>>>0)/4294967296;
+}
+const SPR_OF={
+  'SKRZYNIA BADAWCZA':'CRATE',   'ZASOBNIK PALIWA':'FUEL',
+  'CZARNA SKRZYNKA':'BLACKBOX',  'KAPSUŁA PRÓBEK':'POD',
+  'SONDA GŁĘBINOWA':'PROBE',
+  'DRIFTING CARGO CONTAINER':'CONTAINER', 'UNCHARTED WRECK':'WRECK',
+};
+/* Dystans, na którym echo przestaje być rombem. Ten sam wzór co zasięg pingu,
+   więc SONAR ARRAY i upgrade opłacają się w jednym, spójnym kierunku. */
+function sprRange(){ return (upg().sonar?520:340)*(0.6+0.4*sys().sonar/100); }
+
+const sprCache=new Map();
+function sprite(name,rgb){
+  const key=name+'|'+rgb;
+  let c=sprCache.get(key);
+  if(c) return c;
+  const rows=SPR[name]||SPR.CRATE;
+  const w=rows[0].length, h=rows.length;
+  c=document.createElement('canvas'); c.width=w; c.height=h;
+  const x=c.getContext('2d'), a=[0,0.34,0.62,1];
+  for(let r=0;r<h;r++) for(let q=0;q<w;q++){
+    const v=rows[r].charCodeAt(q)-48;      // '.' daje -2 i wypada z zakresu
+    if(v<1||v>3) continue;
+    x.fillStyle='rgba('+rgb+','+a[v]+')';
+    x.fillRect(q,r,1,1);
+  }
+  sprCache.set(key,c);
+  return c;
+}
+/* px = ile pikseli ekranu na piksel sprite'a. Całkowite i pozycja zaokrąglona,
+   inaczej nearest-neighbour zacznie gubić i dublować rzędy pikseli. */
+function drawSprite(ctx,name,rgb,x,y,px,alpha){
+  const c=sprite(name,rgb);
+  const w=c.width*px, h=c.height*px;
+  ctx.save();
+  ctx.imageSmoothingEnabled=false;
+  ctx.globalAlpha=alpha;
+  ctx.drawImage(c, Math.round(x-w/2), Math.round(y-h/2), w, h);
+  ctx.restore();
+}
+/* Surowe echo — kontakt, którego sonar jeszcze nie rozdzielił do sprite'a.
+   Wydzielone z chart(), bo legenda musi rysować dokładnie ten sam kształt;
+   ikona, która rozjedzie się z ekranem, jest gorsza niż jej brak. */
+function blipHazard(ctx,x,y,r,col,dp){
+  ctx.strokeStyle=col; ctx.lineWidth=1.6*dp;
+  ctx.save(); ctx.translate(x,y); ctx.rotate(Math.PI/4);
+  ctx.strokeRect(-r,-r,r*2,r*2); ctx.restore();
+}
+function blipSalvage(ctx,x,y,r,col,dp){
+  ctx.strokeStyle=col; ctx.lineWidth=1.6*dp;
+  ctx.strokeRect(x-r,y-r,r*2,r*2);
+  ctx.beginPath();
+  ctx.moveTo(x-r*0.43,y); ctx.lineTo(x+r*0.43,y);
+  ctx.moveTo(x,y-r*0.43); ctx.lineTo(x,y+r*0.43); ctx.stroke();
+}
+
+/* ---------------- CANVASES ---------------- */
+const sonar=$('sonar'), sctx=sonar.getContext('2d');
+const dockCv=$('dockview'), dctx=dockCv.getContext('2d');
+const hdgCv=$('hdg-canvas'), hctx=hdgCv.getContext('2d');
+const mapCv=$('mission-map'), mctx=mapCv.getContext('2d');
+function sizeCanvases(){
+  for(const cv of [sonar,dockCv,hdgCv,mapCv]){
+    const r=cv.parentElement.getBoundingClientRect();
+    if(r.width>0){ cv.width=r.width*devicePixelRatio; cv.height=r.height*devicePixelRatio; }
+  }
+}
+addEventListener('resize',()=>{
+  sizeCanvases();
+  // sizeCanvases() clears every canvas; sonar/dock/tape repaint each frame,
+  // but the mission map is drawn on demand and would stay blank.
+  if(G.tab==='missions') drawMissionMap();
+  // legenda rozkłada kolumny po zmierzonych wysokościach — inna szerokość, inny podział
+  if($('pz-legend').classList.contains('on')) renderLegend();
+});
+
+/* terrain: pseudo-noise contour field */
+/* Pole terenu. Trzy pierwsze składowe to nawigacja — wielkie wały o falach
+   3048 / 1302 / 993 m, na nich stoi balans głębokości misji; nie ruszaj ich.
+   Dwie ostatnie to faktura. RIDGE jest kluczowy: |sin| daje ostrą krawędź
+   zamiast gładkiej wydmy, więc oko czyta dużo więcej detalu, a widmo rośnie
+   tylko o harmoniczne 1/n² — siatka to udźwignie. Najkrótsza fala ~520 m
+   NIE JEST przypadkowa: największy krok rzędu siatki 3D to ~149 m, czyli
+   3.5 próbki na falę. Schodząc niżej zaczniesz aliasować dal. */
+const RIDGE_M=0.6366;            // średnia |sin| — odjęta, żeby dno się nie podniosło
+function terr(x,y){
+  return Math.sin(x*0.0016)*Math.cos(y*0.0013)+0.55*Math.sin(x*0.004+y*0.0027)+0.3*Math.sin(y*0.006-x*0.002)
+       + 0.20*(RIDGE_M-Math.abs(Math.sin(x*0.0052-y*0.0031)))
+       + 0.09*Math.sin(x*0.0094+y*0.0071)*Math.cos(y*0.0052);
+}
+
+/* --- bathymetric contour cache (marching squares over terr field) --- */
+const tcache=document.createElement('canvas'), tcx=tcache.getContext('2d');
+let tAnchor=null;
+const TPAD=280;
+function ensureTerrain(scale){
+  const needW=Math.ceil(sonar.width+TPAD*2), needH=Math.ceil(sonar.height+TPAD*2);
+  const S=G.sub, dp=devicePixelRatio;
+  const moved=tAnchor?Math.hypot(S.x-tAnchor.x,S.y-tAnchor.y)*scale:1e9;
+  if(tcache.width===needW && tcache.height===needH && tAnchor && tAnchor.scale===scale && moved<TPAD*0.6) return;
+  tcache.width=needW; tcache.height=needH;
+  tAnchor={x:S.x,y:S.y,scale};
+  const ccx=needW/2, ccy=needH/2;
+  const g=13*dp;
+  const cols=Math.ceil(needW/g)+1, rows=Math.ceil(needH/g)+1;
+  const F=new Float32Array(cols*rows);
+  for(let j=0;j<rows;j++)for(let i=0;i<cols;i++){
+    F[j*cols+i]=terr(S.x+(i*g-ccx)/scale, S.y+(j*g-ccy)/scale);
+  }
+  // iso-lines at several levels: deeper = fainter, ridges = brighter
+  const TH=[{v:-0.55,a:0.07},{v:-0.20,a:0.09},{v:0.10,a:0.12},{v:0.40,a:0.16},{v:0.70,a:0.22},{v:0.95,a:0.28}];
+  for(const t of TH){
+    tcx.strokeStyle='rgba(96,196,214,'+t.a+')';
+    tcx.lineWidth=1*dp;
+    tcx.beginPath();
+    for(let j=0;j<rows-1;j++)for(let i=0;i<cols-1;i++){
+      const x=i*g,y=j*g;
+      const v0=F[j*cols+i]-t.v, v1=F[j*cols+i+1]-t.v,
+            v2=F[(j+1)*cols+i+1]-t.v, v3=F[(j+1)*cols+i]-t.v;
+      const pts=[];
+      if(v0*v1<0) pts.push([x+g*(v0/(v0-v1)), y]);
+      if(v1*v2<0) pts.push([x+g, y+g*(v1/(v1-v2))]);
+      if(v3*v2<0) pts.push([x+g*(v3/(v3-v2)), y+g]);
+      if(v0*v3<0) pts.push([x, y+g*(v0/(v0-v3))]);
+      if(pts.length>=2){
+        tcx.moveTo(pts[0][0],pts[0][1]); tcx.lineTo(pts[1][0],pts[1][1]);
+        if(pts.length===4){ tcx.moveTo(pts[2][0],pts[2][1]); tcx.lineTo(pts[3][0],pts[3][1]); }
+      }
+    }
+    tcx.stroke();
+  }
+  // rocky speckle on ridge tops
+  tcx.fillStyle='rgba(110,205,225,0.13)';
+  const st=8*dp;
+  for(let y=0;y<needH;y+=st)for(let x=0;x<needW;x+=st){
+    const v=terr(S.x+(x-ccx)/scale, S.y+(y-ccy)/scale);
+    if(v>0.85 && ((x*7+y*13)&7)<3) tcx.fillRect(x,y,1.6*dp,1.6*dp);
+  }
+}
+
+function drawSonar(){
+  const W=sonar.width,H=sonar.height,dp=devicePixelRatio;
+  const cx=W/2,cy=H/2, S=G.sub;
+  sctx.clearRect(0,0,W,H);
+  const scale=0.22*dp; // meters -> px
+  const w2s=(wx,wy)=>[cx+(wx-S.x)*scale, cy+(wy-S.y)*scale];
+  const ha=d2r(S.hdg-90);
+  const fadeT=echoFadeT();
+  let lite=false, liteK=1;   // tryb minimapy: bez opisów, ikony powiększone
+
+  /* Dwa układy ekranu, przełączane TAB-em:
+       CHART   — mapa z góry na pełnym panelu + profil głębokości pod spodem,
+       TERRAIN — teren 3D na pełnym panelu + mapa zwinięta do minimapy w rogu.
+     Kod mapy istnieje raz: minimapa to ta sama chart() pod transformacją canvasu. */
+  if(G.view3d){ terrain3d(); minimap(); }
+  else        { chart(); profile2d(); }
+  compassRose();
+  if(!G.view3d) depthScale();   // w trybie 3D tę rolę pełni DOM-owy #depth-rail
+  bearingScale();
+  return;
+
+  function chart(){
+  // terrain contour layers (cached)
+  ensureTerrain(scale);
+  sctx.drawImage(tcache,
+    cx+(tAnchor.x-S.x)*scale - tcache.width/2,
+    cy+(tAnchor.y-S.y)*scale - tcache.height/2);
+  /* --- granica rozpoznania: co niezbadane, to zaszrafowane ---
+     Rysowane ZARAZ po warstwicach, a przed trasą, echami i łodzią: szraf ma
+     zakryć batymetrię (tego nie zmierzyłeś), ale nie własne odczyty — echo,
+     które już złapałeś, jest twoją wiedzą niezależnie od stanu kartowania.
+     liteK skaluje krok szrafu i grubość linii, żeby na minimapie nie zamienił
+     się w jednolitą plamę. */
+  if(G.fog){
+    const O=G.fogO, cs=FOG_CELL*scale+0.7;
+    const reach=(Math.max(W,H)/2)/scale+FOG_CELL*2;
+    const i0=Math.max(0,Math.floor((S.x-reach-O.x)/FOG_CELL)), i1=Math.min(FOG_N-1,Math.ceil((S.x+reach-O.x)/FOG_CELL));
+    const j0=Math.max(0,Math.floor((S.y-reach-O.y)/FOG_CELL)), j1=Math.min(FOG_N-1,Math.ceil((S.y+reach-O.y)/FOG_CELL));
+    /* Ścieżka budowana w układzie SIATKI, nie ekranu — przesunięcie łodzi
+       załatwia potem translate(), więc sam ruch jej nie unieważnia. Przebudowa
+       tylko gdy zmieni się okno widoczności albo gdy od ostatniego odsłonięcia
+       minęło ponad 120 ms: granica rozpoznania przesuwa się o komórkę raz na
+       kilkanaście klatek, więc odrobina zwłoki jest niewidoczna. */
+    const now=performance.now();
+    if(!fogPath || fogPath.i0!==i0 || fogPath.i1!==i1 || fogPath.j0!==j0 || fogPath.j1!==j1
+       || fogPath.sc!==scale || (fogPath.ver!==fogVer && now-fogPath.t>120)){
+      const pth=new Path2D();
+      for(let j=j0;j<=j1;j++){
+        const sy=j*FOG_CELL*scale, row=j*FOG_N;
+        for(let i=i0;i<=i1;i++){
+          if(G.fog[row+i]) continue;
+          pth.rect(i*FOG_CELL*scale, sy, cs, cs);
+        }
+      }
+      fogPath={p:pth,i0,i1,j0,j1,sc:scale,ver:fogVer,t:now};
+    }
+    sctx.save();
+    sctx.translate(cx-(S.x-O.x)*scale, cy-(S.y-O.y)*scale);
+    sctx.clip(fogPath.p);
+    sctx.translate(-(cx-(S.x-O.x)*scale), -(cy-(S.y-O.y)*scale));
+    sctx.fillStyle='rgba(3,8,11,0.80)';
+    sctx.fillRect(-W,-H,W*3,H*3);
+    sctx.strokeStyle='rgba(70,150,170,0.22)';
+    sctx.lineWidth=1*dp*liteK;
+    sctx.beginPath();
+    const st=9*dp*liteK;
+    for(let x=-H*2;x<W*2;x+=st){ sctx.moveTo(x,H*2); sctx.lineTo(x+H*2,-H); }
+    sctx.stroke();
+    sctx.restore();
+  }
+  // rotating sweep with fading trail
+  const sweepA=G.t*0.85;
+  for(let k=0;k<34;k++){
+    const a=sweepA-k*0.022;
+    sctx.strokeStyle='rgba(90,220,230,'+((0.12+0.10*(G.pingFlash||0))*(1-k/34))+')';
+    sctx.lineWidth=(k===0?1.6:1.2)*dp;
+    sctx.beginPath(); sctx.moveTo(cx,cy);
+    sctx.lineTo(cx+Math.cos(a)*560*dp, cy+Math.sin(a)*560*dp); sctx.stroke();
+  }
+  // range rings
+  sctx.strokeStyle='rgba(70,150,170,0.18)'; sctx.setLineDash([6*dp,7*dp]); sctx.lineWidth=1*dp;
+  for(const r of [120,300,520]){ sctx.beginPath(); sctx.arc(cx,cy,r*dp,0,TAU); sctx.stroke(); }
+  // bearing spokes
+  for(let a=0;a<360;a+=30){
+    sctx.beginPath(); sctx.moveTo(cx,cy);
+    sctx.lineTo(cx+Math.cos(d2r(a-90))*560*dp, cy+Math.sin(d2r(a-90))*560*dp);
+    sctx.strokeStyle='rgba(70,150,170,0.06)'; sctx.stroke();
+  }
+  sctx.setLineDash([]);
+  // sonar sweep cone in heading direction
+  const grad=sctx.createRadialGradient(cx,cy,0,cx,cy,420*dp);
+  grad.addColorStop(0,'rgba(90,220,230,0.20)'); grad.addColorStop(1,'rgba(90,220,230,0)');
+  sctx.fillStyle=grad;
+  sctx.beginPath(); sctx.moveTo(cx,cy);
+  sctx.arc(cx,cy,420*dp,ha-0.24,ha+0.24); sctx.closePath(); sctx.fill();
+  // route to current waypoint + dock
+  sctx.setLineDash([5*dp,6*dp]); sctx.lineWidth=1.4*dp;
+  let prev=[cx,cy];
+  for(let i=G.wpIdx;i<G.wpts.length;i++){
+    const p=w2s(G.wpts[i].x,G.wpts[i].y);
+    sctx.strokeStyle=i===G.wpts.length-1?'rgba(90,220,230,0.6)':'rgba(90,220,230,0.35)';
+    sctx.beginPath(); sctx.moveTo(prev[0],prev[1]); sctx.lineTo(p[0],p[1]); sctx.stroke();
+    prev=p;
+    // waypoint marker
+    sctx.strokeStyle='rgba(90,220,230,0.7)'; sctx.setLineDash([]);
+    if(i===G.wpts.length-1){
+      sctx.strokeRect(p[0]-14*dp,p[1]-14*dp,28*dp,28*dp);
+      label('⚓ '+G.mission.name.toUpperCase(), p[0]-14*dp, p[1]-22*dp, 'rgba(120,230,240,0.9)');
+      label(fmtB(Math.hypot(G.wpts[i].x-S.x,G.wpts[i].y-S.y)), p[0]-14*dp, p[1]-8*dp, 'rgba(120,230,240,0.7)');
+    } else {
+      sctx.beginPath(); sctx.arc(p[0],p[1],5*dp,0,TAU); sctx.stroke();
+    }
+    sctx.setLineDash([5*dp,6*dp]);
+  }
+  sctx.setLineDash([]);
+  // --- ECHO PULSE: expanding ping rings ---
+  for(const p of G.pings){
+    const rr=(G.t-p.t0)*PING_SPEED;
+    const frac=rr/p.range;
+    if(frac>1) continue;
+    const [px,py]=w2s(p.x,p.y);
+    const al=(1-frac)*0.55;
+    sctx.strokeStyle='rgba(90,220,230,'+al+')'; sctx.lineWidth=2*dp;
+    sctx.beginPath(); sctx.arc(px,py,rr*scale,0,TAU); sctx.stroke();
+    sctx.strokeStyle='rgba(90,220,230,'+(al*0.35)+')'; sctx.lineWidth=7*dp;
+    sctx.beginPath(); sctx.arc(px,py,Math.max(0,rr*scale-5*dp),0,TAU); sctx.stroke();
+  }
+  // --- hazards: visible only as sonar echoes ---
+  for(const h of G.hazards){
+    const age=G.t-h.seen;
+    if(age>fadeT*3) continue;               // never seen or long gone
+    const stale=age>fadeT;
+    const alpha= stale?0.16 : (1-age/fadeT)*0.95+0.05;
+    // echo is drawn at last-known (snapshot) position, not live position
+    const p=w2s(h.sx,h.sy);
+    if(p[0]<-40||p[0]>W+40||p[1]<-40||p[1]>H+40) continue;
+    // sprite dopiero, gdy sonar rozdzieli kształt — z daleka zostaje surowy blip
+    const hd=Math.hypot(h.sx-S.x,h.sy-S.y), hres=!lite && !stale && hd<sprRange();
+    if(hres){
+      drawSprite(sctx,SPR_OF[h.name],'255,106,60',p[0],p[1],Math.max(1,Math.round(1.5*dp)),alpha);
+    } else {
+      blipHazard(sctx,p[0],p[1],8*dp,'rgba(255,106,60,'+alpha+')',dp);
+    }
+    if(age<1.2){ // fresh echo flash
+      sctx.strokeStyle='rgba(255,106,60,'+(0.5*(1-age/1.2))+')';
+      sctx.beginPath(); sctx.arc(p[0],p[1],(14+age*26)*dp,0,TAU); sctx.stroke();
+      sctx.strokeStyle='rgba(255,106,60,'+(0.25*(1-age/1.2))+')';
+      sctx.beginPath(); sctx.arc(p[0],p[1],(22+age*34)*dp,0,TAU); sctx.stroke();
+    }
+    if(!stale){
+      sctx.setLineDash([3*dp,4*dp]); sctx.strokeStyle='rgba(255,106,60,'+(alpha*0.45)+')';
+      sctx.beginPath(); sctx.moveTo(p[0],p[1]); sctx.lineTo(cx,cy); sctx.stroke(); sctx.setLineDash([]);
+      // Nazwa dopiero po rozdzieleniu. Nic to nie odbiera decyzjom — typ, namiar
+      // i głębokość widać zawsze — a identyfikacja staje się nagrodą za antenę.
+      label(hres?h.name:'KONTAKT NIEZIDENTYFIKOWANY', p[0]+12*dp, p[1]-6*dp,
+            'rgba(255,120,70,'+(hres?alpha:alpha*0.8)+')');
+      label(fmtB(hd)+' · '+h.depth+' m', p[0]+12*dp, p[1]+8*dp, 'rgba(255,120,70,'+(alpha*0.75)+')');
+    } else {
+      label('OSTATNIA ZNANA POZYCJA', p[0]+12*dp, p[1]+4*dp, 'rgba(255,120,70,0.30)');
+    }
+  }
+  // --- salvage: zielone echa ładunku do przejęcia ---
+  for(const s of G.salvage){
+    if(s.taken) continue;
+    const age=G.t-s.seen;
+    if(age>fadeT*3) continue;
+    const stale=age>fadeT;
+    const alpha= stale?0.14 : (1-age/fadeT)*0.9+0.1;
+    const p=w2s(s.sx,s.sy);
+    if(p[0]<-40||p[0]>W+40||p[1]<-40||p[1]>H+40) continue;
+    const sd=Math.hypot(s.sx-S.x,s.sy-S.y), sres=!lite && !stale && sd<sprRange();
+    if(sres){
+      drawSprite(sctx,SPR_OF[s.name],'62,207,142',p[0],p[1],Math.max(1,Math.round(1.5*dp)),alpha);
+    } else {
+      blipSalvage(sctx,p[0],p[1],7*dp,'rgba(62,207,142,'+alpha+')',dp);
+    }
+    if(!stale){
+      // wartość widać zawsze — bez niej nie da się zdecydować, czy warto nadkładać
+      label((sres?s.name:'SALVAGE')+' · '+s.val+' CR', p[0]+12*dp, p[1]-6*dp, 'rgba(90,225,160,'+alpha+')');
+      label(fmtB(sd)+' · '+s.depth+' m', p[0]+12*dp, p[1]+8*dp, 'rgba(90,225,160,'+(alpha*0.75)+')');
+    }
+  }
+  // safe-channel callout halfway to current waypoint
+  const wNow=G.wpts[G.wpIdx];
+  if(wNow){
+    const p=w2s(wNow.x,wNow.y);
+    const mx=(cx+p[0])/2, my=(cy+p[1])/2;
+    sctx.strokeStyle='rgba(120,210,225,0.5)';
+    sctx.lineWidth=1*dp;
+    sctx.beginPath(); sctx.moveTo(mx-4*dp,my+14*dp); sctx.lineTo(mx-4*dp,my+2*dp); sctx.lineTo(mx+56*dp,my+2*dp); sctx.stroke();
+    label('SAFE CHANNEL', mx, my-4*dp, 'rgba(140,225,235,0.85)');
+    label(fmtB(Math.hypot(wNow.x-S.x,wNow.y-S.y)), mx, my+12*dp, 'rgba(140,225,235,0.6)');
+  }
+  // own sub at center
+  sctx.strokeStyle='rgba(120,230,240,0.5)';
+  sctx.beginPath(); sctx.arc(cx,cy,26*dp*liteK,0,TAU); sctx.stroke();
+  drawSubIcon(sctx,cx,cy,ha,10*dp*liteK,'#9be8f0');
+  }
+
+  /* Prawy DÓŁ kadru: górna połowa należy do terenu i znaczników kontaktów, a znacznik
+     waypointu siedzi przy horyzoncie. Promień skaluje się z panelem — stała wielkość
+     zjadała pół ekranu w małym oknie. Wspólne dla minimapy i omijania jej przez
+     znacznik waypointu, żeby geometria była policzona w jednym miejscu. */
+  function miniGeom(){
+    const mr=clamp(H*0.155,64*dp,116*dp);
+    return {mr, mx:W-mr-30*dp, my:H-mr-56*dp};
+  }
+  /* Minimapa — chart() narysowana przez transformację canvasu, więc jest jedna
+     implementacja mapy. Promień odpowiada 1600 m, czyli zasięgowi pingu
+     z ulepszonym sonarem: co widać na minimapie, to zasięg twojego echa. */
+  function minimap(){
+    const {mr,mx,my}=miniGeom();
+    const k=mr/(1600*scale);
+    sctx.save();
+    sctx.beginPath(); sctx.arc(mx,my,mr,0,TAU);
+    sctx.fillStyle='rgba(4,11,15,0.9)'; sctx.fill();
+    sctx.clip();
+    sctx.translate(mx-k*cx, my-k*cy); sctx.scale(k,k);
+    lite=true; liteK=1/k;
+    chart();
+    lite=false; liteK=1;
+    sctx.restore();
+    sctx.strokeStyle='rgba(90,200,220,0.5)'; sctx.lineWidth=1.4*dp;
+    sctx.beginPath(); sctx.arc(mx,my,mr,0,TAU); sctx.stroke();
+    sctx.fillStyle='rgba(140,225,235,0.7)'; sctx.font='600 '+(10*dp)+'px Arial';
+    sctx.textAlign='center';
+    sctx.fillText('CHART · PROMIEŃ 1.6 km', mx, my+mr+16*dp);
+    sctx.textAlign='left';
+  }
+
+  function profile2d(){
+    const px0=60*dp, px1=W-24*dp, py0=H-168*dp, ph=112*dp, pw=px1-px0;
+    sctx.fillStyle='#040a0e'; sctx.fillRect(px0,py0,pw,ph);   // kryjący: pod spodem leży szraf
+    sctx.strokeStyle='rgba(29,50,64,0.95)'; sctx.lineWidth=1*dp; sctx.strokeRect(px0,py0,pw,ph);
+    const LOOK=1000;
+    const minD=Math.max(0,S.depth-140), maxD=S.depth+220;
+    const yOf=d=>py0+clamp((d-minD)/(maxD-minD),0,1)*ph;
+    const dirx=Math.cos(ha), diry=Math.sin(ha);
+    const N=64;
+    let firstHit=-1, prevPt=null;
+    // filled silhouette
+    sctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const dist=i/N*LOOK;
+      const d=seabed(S.x+dirx*dist, S.y+diry*dist);
+      const x=px0+i/N*pw, y=yOf(d);
+      i?sctx.lineTo(x,y):sctx.moveTo(x,y);
+      if(firstHit<0 && d<=S.depth+8) firstHit=dist;
+    }
+    sctx.lineTo(px1,py0+ph); sctx.lineTo(px0,py0+ph); sctx.closePath();
+    sctx.fillStyle='rgba(12,30,40,0.88)'; sctx.fill();
+    // outline
+    sctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const dist=i/N*LOOK, d=seabed(S.x+dirx*dist,S.y+diry*dist);
+      const x=px0+i/N*pw; i?sctx.lineTo(x,yOf(d)):sctx.moveTo(x,yOf(d));
+    }
+    sctx.strokeStyle='rgba(89,214,226,0.55)'; sctx.lineWidth=1.6*dp; sctx.stroke();
+    // danger segments (ridge at/above our depth)
+    sctx.strokeStyle='#ff6a3c'; sctx.lineWidth=2.4*dp; sctx.beginPath();
+    for(let i=0;i<=N;i++){
+      const dist=i/N*LOOK, d=seabed(S.x+dirx*dist,S.y+diry*dist);
+      const pt=[px0+i/N*pw,yOf(d),d];
+      if(prevPt && (d<=S.depth+8||prevPt[2]<=S.depth+8)){ sctx.moveTo(prevPt[0],prevPt[1]); sctx.lineTo(pt[0],pt[1]); }
+      prevPt=pt;
+    }
+    sctx.stroke();
+    // own depth line + sub marker
+    const yd=yOf(S.depth);
+    sctx.strokeStyle='rgba(232,163,60,0.85)'; sctx.setLineDash([6*dp,5*dp]); sctx.lineWidth=1.2*dp;
+    sctx.beginPath(); sctx.moveTo(px0,yd); sctx.lineTo(px1,yd); sctx.stroke(); sctx.setLineDash([]);
+    sctx.fillStyle='#9be8f0';
+    sctx.beginPath(); sctx.moveTo(px0+2*dp,yd-6*dp); sctx.lineTo(px0+14*dp,yd); sctx.lineTo(px0+2*dp,yd+6*dp); sctx.closePath(); sctx.fill();
+    // echoes of hazards near the course line, at their depth
+    for(const h of G.hazards){
+      if(G.t-h.seen>fadeT) continue;
+      const rx_=h.sx-S.x, ry_=h.sy-S.y;
+      const along=rx_*dirx+ry_*diry, lat=Math.abs(-rx_*diry+ry_*dirx);
+      if(along<0||along>LOOK||lat>160) continue;
+      const x=px0+along/LOOK*pw, y=yOf(h.depth);
+      sctx.strokeStyle='rgba(255,106,60,0.9)'; sctx.lineWidth=1.6*dp;
+      sctx.save(); sctx.translate(x,y); sctx.rotate(Math.PI/4); sctx.strokeRect(-5*dp,-5*dp,10*dp,10*dp); sctx.restore();
+      label(h.depth+' m', x+9*dp, y-6*dp, 'rgba(255,120,70,0.8)');
+    }
+    // captions
+    sctx.font='600 '+(10*dp)+'px Arial';
+    sctx.fillStyle='rgba(140,225,235,0.75)';
+    sctx.fillText('DEPTH PROFILE · 1 km PRZED DZIOBEM · TAB: WIDOK 3D', px0+8*dp, py0+14*dp);
+    sctx.fillStyle='rgba(150,200,215,0.5)';
+    sctx.fillText(Math.round(minD)+' m', px1-46*dp, py0+12*dp);
+    sctx.fillText(Math.round(maxD)+' m', px1-46*dp, py0+ph-6*dp);
+    if(firstHit>=0){
+      const tts=firstHit/Math.max(0.3,S.spd*3.4);
+      sctx.fillStyle='#ff8a5c';
+      sctx.fillText('⚠ GRZBIET NA KURSIE · KONTAKT ZA '+fmtT(tts), px0+8*dp, py0+28*dp);
+    }
+  }
+
+  /* Teren 3D na pełnym panelu. Siatka jest trapezowa: rozstaw kolumn rośnie
+     z odległością (`spread`), więc oczka mają z grubsza stały rozmiar na ekranie,
+     a dalekie rzędy sięgają krawędzi kadru bez dokładania kolumn. Ogniskowa jest
+     związana z wysokością panelu, żeby kompozycja nie zależała od rozmiaru okna. */
+  function terrain3d(){
+    const px0=0, py0=0, pw=W, ph=H;
+    const dirx=Math.cos(ha), diry=Math.sin(ha), perpx=-diry, perpy=dirx;
+    const f=ph*1.5, z0=150, camH=70;
+    const vpx=px0+pw/2, horizon=py0+ph*0.34+G.cam.pitch*1.6*dp;
+    const proj=(lx,d,z)=>{ const s=f/(z+z0); return [vpx+lx*s, horizon+((d-S.depth)+camH)*0.85*s]; };
+    sctx.save(); sctx.beginPath(); sctx.rect(px0,py0,pw,ph); sctx.clip();
+    // toń: ciemnieje ku dołowi, rozjaśnia się przy horyzoncie — daje głębi tło
+    const murk=sctx.createLinearGradient(0,py0,0,py0+ph);
+    murk.addColorStop(0,'rgba(6,20,28,1)');
+    murk.addColorStop(clamp((horizon-py0)/ph,0.02,0.98),'rgba(12,42,54,1)');
+    murk.addColorStop(1,'rgba(3,8,12,1)');
+    sctx.fillStyle=murk; sctx.fillRect(px0,py0,pw,ph);
+    // przechył kamery wokół punktu zbiegu — obraca całą scenę, nie pojedyncze linie
+    sctx.translate(vpx,horizon); sctx.rotate(G.cam.bank); sctx.translate(-vpx,-horizon);
+    // ZNEAR: pierwszy rząd nie zaczyna się pod dziobem — tuż przy kamerze oczka
+    // rozdmuchuje perspektywa na pół ekranu i nie niosą żadnej informacji.
+    const ROWS=T3_ROWS, COLS=T3_COLS, XSTEP=T3_XSTEP;
+    const spread=z=>0.35+z*0.0022;
+    const NV=ROWS*COLS;
+    const P=new Array(NV), DG=new Array(NV), LIT=new Array(NV);
+    /* Ping oświetla w danej chwili PIERŚCIEŃ: bliżej niż czoło fali, ale nie dalej
+       niż tam, gdzie ślad już dogasł. Granice liczone raz na ping i trzymane jako
+       kwadraty, żeby test na węzeł był bez pierwiastka — to jest najgorętsza pętla
+       w całym renderze (696 węzłów × liczba żywych pingów co klatkę). */
+    const live=[];
+    for(const p of G.pings){
+      const el=G.t-p.t0;
+      const dMax=Math.min(el*PING_SPEED,p.range), dMin=Math.max(0,(el-EDGE_DECAY)*PING_SPEED);
+      if(dMin>=dMax) continue;
+      live.push({x:p.x,y:p.y,t0:p.t0,range:p.range,lo:dMin*dMin,hi:dMax*dMax});
+    }
+    for(let r=0;r<ROWS;r++){
+      const z=T3_Z[r], sp=spread(z);
+      for(let c=0;c<COLS;c++){
+        const lx=(c-(COLS-1)/2)*XSTEP*sp;
+        const wx=S.x+dirx*z+perpx*lx, wy=S.y+diry*z+perpy*lx;
+        const d=seabed(wx,wy), i=r*COLS+c;
+        P[i]=proj(lx,d,z); DG[i]=d;
+        /* Nie pasmo wokół czoła fali, tylko PAMIĘĆ węzła: kiedy fala tu dotarła
+           i ile z tego zostało. Liczone analitycznie z odległości — siatka żyje
+           w układzie kamery i co klatkę leży w innym miejscu świata, więc tablicy
+           indeksowanej (r,c) nie da się użyć jako pamięci. */
+        let lit=0;
+        for(const p of live){
+          const ex=wx-p.x, ey=wy-p.y, d2=ex*ex+ey*ey;
+          if(d2<p.lo||d2>p.hi) continue;          // przed czołem fali albo już po śladzie
+          const dd=Math.sqrt(d2);
+          const v=(1-(G.t-p.t0-dd/PING_SPEED)/EDGE_DECAY)*(1-0.45*dd/p.range);
+          if(v>lit) lit=v;
+        }
+        LIT[i]=lit;
+      }
+    }
+    if(!q3dPal) build3dPal(T3_NEAR);
+    /* Głazy zbierane raz na klatkę i sortowane od najdalszego. Rysowane potem
+       WEWNĄTRZ pętli rzędów, zaraz po rzędzie, w którym stoją — dzięki temu
+       bliższy grzbiet zasłoni je tym samym mechanizmem malarskim co resztę
+       sceny, bez żadnego bufora głębokości. */
+    const rocks=[];
+    {
+      /* Głaz musi stać na powierzchni, którą WIDAĆ, a nie na tej, którą liczy
+         seabed(). Rysowana siatka to interpolacja liniowa między węzłami i ścina
+         grzbiety nawet o 25 m — kamień posadzony na prawdziwym dnie wisiał nad
+         narysowanym stokiem. Dwuliniowo po tych samych DG, z których powstały
+         oczka, więc siedzi dokładnie na skorupie. */
+      const surfD=(al,lt)=>{
+        let r=0;
+        while(r<ROWS-2 && T3_Z[r+1]<=al) r++;
+        const t=clamp((al-T3_Z[r])/(T3_Z[r+1]-T3_Z[r]),0,1);
+        const at=row=>{
+          const cf=clamp(lt/(XSTEP*spread(T3_Z[row]))+(COLS-1)/2,0,COLS-1.001);
+          const c0=cf|0, i=row*COLS+c0;
+          return DG[i]+(DG[i+1]-DG[i])*(cf-c0);
+        };
+        const a0=at(r);
+        return a0+(at(r+1)-a0)*t;
+      };
+      const reach=T3_Z[ROWS-1];
+      const ci=Math.floor(S.x/ROCK_CELL), cj=Math.floor(S.y/ROCK_CELL);
+      const RR=Math.ceil(reach/ROCK_CELL)+1;
+      for(let di=-RR;di<=RR;di++) for(let dj=-RR;dj<=RR;dj++){
+        const ii=ci+di, jj=cj+dj;
+        if(rhash(ii,jj,0)>0.35) continue;                  // rzadko i wyraźnie: ~20 w kadrze
+        const bx=(ii+rhash(ii,jj,1))*ROCK_CELL, by=(jj+rhash(ii,jj,2))*ROCK_CELL;
+        const rx_=bx-S.x, ry_=by-S.y;
+        const al=rx_*dirx+ry_*diry;
+        if(al<28||al>reach) continue;
+        const lt=rx_*perpx+ry_*perpy;
+        if(Math.abs(lt)>620+al*1.25) continue;             // poza kadrem
+        const size=7+rhash(ii,jj,3)*19;                    // 7..26 m
+        // Skala nierozokrąglona rządzi widocznością, zaokrąglona rysowaniem.
+        // Bez tego głaz wyskakiwał na granicy zasięgu z niczego na 12 px.
+        const raw=size*(f/(al+z0))/12;
+        if(raw<0.75) continue;          // poniżej tego sonar tego nie rozdziela
+        rocks.push({al,lt,d:surfD(al,lt),px:Math.max(1,Math.round(raw)),
+                    fade:clamp((raw-0.75)/0.7,0,1),
+                    sp:ROCK_SPR[(rhash(ii,jj,4)*3)|0]});
+      }
+      rocks.sort((a,b)=>b.al-a.al);
+    }
+    let rp=0;
+    const BK=new Array(COLS), LH=new Array(COLS), LV=new Array(COLS),
+          DH=new Array(COLS), DV=new Array(COLS);
+    // Painter's algorithm: rzędy od najdalszego do najbliższego. Wypełnione oczka
+    // siatki dają zasłanianie za darmo — bliski grzbiet zakrywa to, co za nim.
+    for(let r=ROWS-1;r>=0;r--){
+      if(r<ROWS-1){
+        const near=T3_NEAR[r], base=r*Q_SH;
+        for(let c=0;c<COLS-1;c++){
+          const i=r*COLS+c, j=i+COLS;
+          const dep=(DG[i]+DG[i+1]+DG[j]+DG[j+1])*0.25;
+          // stok zwrócony ku nam odbija sonar mocniej — stąd jaśniejsze ściany grzbietów
+          const slope=(DG[j]-DG[i])/(T3_Z[r+1]-T3_Z[r]);
+          const lit=(LIT[i]+LIT[i+1]+LIT[j]+LIT[j+1])*0.25;
+          const sh=clamp(0.12-slope*0.5+near*0.32+lit*0.85,0,1);
+          BK[c]=(dep<=S.depth+8?Q_SH:0)+(sh*(Q_SH-1)|0);
+        }
+        // jeden fill na kubełek koloru zamiast jednego na oczko
+        for(let b=0;b<Q_SH*2;b++){
+          let any=false;
+          for(let c=0;c<COLS-1;c++){
+            if(BK[c]!==b) continue;
+            const i=r*COLS+c, j=i+COLS;
+            const A=P[i],B=P[i+1],C2=P[j+1],D2=P[j];
+            if(!any){ sctx.beginPath(); any=true; }
+            sctx.moveTo(A[0],A[1]); sctx.lineTo(B[0],B[1]);
+            sctx.lineTo(C2[0],C2[1]); sctx.lineTo(D2[0],D2[1]); sctx.closePath();
+          }
+          if(any){ sctx.fillStyle=q3dPal[b>=Q_SH?1:0][base+b%Q_SH]; sctx.fill(); }
+        }
+      }
+      /* KRAWĘDZIE — rysuje je WYŁĄCZNIE przechodząca fala i gasną w EDGE_DECAY.
+         Siatka drutowa, która stoi zawsze, kłamie o tym, czym jest sonar: krawędź
+         to interpretacja, a interpretację ma rysować ten ping, który ją wytworzył.
+         Dwa przebiegi — szeroki przygaszony daje poświatę, wąski jasny rdzeń;
+         podział na dg zachowuje pomarańcz na oczkach na naszej głębokości. */
+      let hot=false;
+      for(let c=0;c<COLS;c++){
+        const i=r*COLS+c, dHere=DG[i]<=S.depth+8;
+        LH[c]=c<COLS-1 ? Math.max(LIT[i],LIT[i+1]) : 0;
+        LV[c]=r<ROWS-1 ? Math.max(LIT[i],LIT[i+COLS]) : 0;
+        DH[c]=c<COLS-1 && (dHere||DG[i+1]<=S.depth+8);
+        DV[c]=r<ROWS-1 && (dHere||DG[i+COLS]<=S.depth+8);
+        if(LH[c]>0.06||LV[c]>0.06) hot=true;
+      }
+      if(hot) for(const core of [false,true]){
+        sctx.lineWidth=(core?2:5.5)*dp;
+        const k=(core?1:0.35)*(Q_LIT-1);
+        for(let dg=0;dg<2;dg++) for(let b=1;b<Q_LIT;b++){
+          let any=false;
+          for(let c=0;c<COLS;c++){
+            const i=r*COLS+c;
+            if(LH[c]>0.06 && (DH[c]?1:0)===dg && Math.min(Q_LIT-1,LH[c]*k|0)===b){
+              if(!any){ sctx.beginPath(); any=true; }
+              sctx.moveTo(P[i][0],P[i][1]); sctx.lineTo(P[i+1][0],P[i+1][1]);
+            }
+            if(LV[c]>0.06 && (DV[c]?1:0)===dg && Math.min(Q_LIT-1,LV[c]*k|0)===b){
+              if(!any){ sctx.beginPath(); any=true; }
+              sctx.moveTo(P[i][0],P[i][1]); sctx.lineTo(P[i+COLS][0],P[i+COLS][1]);
+            }
+          }
+          if(any){ sctx.strokeStyle=(dg?q3dLitD:q3dLit)[b]; sctx.stroke(); }
+        }
+      }
+      /* PUNKTY w węzłach — warstwa TRWAŁA, jedyna widoczna między pingami, więc to
+         ona niesie ostrzeżenie o głębokości. Rysowane po krawędziach, żeby zostały
+         ostre pod poświatą. Jeden rect() na węzeł, jeden fill() na kubełek koloru:
+         rozmiar wolno zmieniać w obrębie jednej ścieżki, więc bliskie węzły są
+         większe za darmo. */
+      {
+        const ps=(1.4+2.1*T3_NEAR[r])*dp, base=r*Q_PT;
+        for(let dg=0;dg<2;dg++) for(let b=0;b<Q_PT;b++){
+          let any=false;
+          for(let c=0;c<COLS;c++){
+            const i=r*COLS+c;
+            if((DG[i]<=S.depth+8?1:0)!==dg) continue;
+            if(Math.min(Q_PT-1,LIT[i]*Q_PT|0)!==b) continue;
+            if(!any){ sctx.beginPath(); any=true; }
+            const w=b===Q_PT-1?ps+1.2*dp:ps;
+            sctx.rect(P[i][0]-w/2,P[i][1]-w/2,w,w);
+          }
+          if(any){ sctx.fillStyle=q3dPt[dg][base+b]; sctx.fill(); }
+        }
+      }
+      // głazy z tego pasma odległości — na wierzchu rzędu, pod rzędami bliższymi
+      while(rp<rocks.length && rocks[rp].al>=T3_Z[r]){
+        const k=rocks[rp++], pt=proj(k.lt,k.d,k.al);
+        // Głaz na grzbiecie na Twojej głębokości idzie w pomarańcz razem z oczkami
+        // pod nim — inaczej czytałby się jak ikona doklejona do sceny, a nie jak dno.
+        drawSprite(sctx,k.sp,k.d<=S.depth+8?'214,132,86':'126,168,184',
+                   pt[0],pt[1]-6*k.px,k.px,
+                   clamp(0.34+0.56*T3_NEAR[r],0,0.9)*k.fade);
+      }
+    }
+    // Kontakty zawieszone w toni na swojej głębokości, z nitką do dna — bez niej
+    // nie widać, czy mijasz je górą czy dołem.
+    const LOOK=T3_Z[ROWS-1];
+    const contact=(sx,sy,depth,age,rgb,name,txt,raw)=>{
+      const rx_=sx-S.x, ry_=sy-S.y;
+      const along=rx_*dirx+ry_*diry, lat=rx_*perpx+ry_*perpy;
+      if(along<10||along>LOOK||Math.abs(lat)>700+along*1.1) return;
+      const a=1-age/fadeT;
+      const pt=proj(lat,depth,along), sbP=proj(lat,seabed(sx,sy),along);
+      sctx.strokeStyle='rgba('+rgb+','+(0.30*a)+')'; sctx.setLineDash([3*dp,3*dp]); sctx.lineWidth=1*dp;
+      sctx.beginPath(); sctx.moveTo(pt[0],pt[1]); sctx.lineTo(sbP[0],sbP[1]); sctx.stroke(); sctx.setLineDash([]);
+      const sz=Math.max(5*dp, 14*dp*(400/(along+z0)));
+      const dist=Math.hypot(rx_,ry_), res=dist<sprRange();
+      if(res){
+        drawSprite(sctx,SPR_OF[name],rgb,pt[0],pt[1],Math.max(2,Math.round(sz*2.6/12)),0.4+0.6*a);
+      } else {
+        blipHazard(sctx,pt[0],pt[1],sz,'rgba('+rgb+','+(0.4+0.6*a)+')',1.125*dp);
+      }
+      label((res?txt:raw)+' · '+Math.round(dist)+' m · '+depth+' m',
+            pt[0]+sz+6*dp, pt[1]+4*dp, 'rgba('+rgb+','+(0.4+0.5*a)+')');
+    };
+    for(const h of G.hazards){
+      const age=G.t-h.seen; if(age>fadeT) continue;
+      contact(h.sx,h.sy,h.depth,age,'255,120,70',h.name,h.name,'KONTAKT NIEZIDENTYFIKOWANY');
+    }
+    // W tym trybie mapa jest zwinięta do minimapy, więc salvage musi być widoczny tutaj
+    for(const s of G.salvage){
+      if(s.taken) continue;
+      const age=G.t-s.seen; if(age>fadeT) continue;
+      contact(s.sx,s.sy,s.depth,age,'90,225,160',s.name,
+              s.name+' · '+s.val+' CR','SALVAGE · '+s.val+' CR');
+    }
+    // --- namiar na waypoint: bez niego w tym widoku nie da się nawigować ---
+    const wp=G.wpts[G.wpIdx];
+    if(wp){
+      const rx_=wp.x-S.x, ry_=wp.y-S.y;
+      const along=rx_*dirx+ry_*diry, lat=rx_*perpx+ry_*perpy;
+      const last=G.wpIdx===G.wpts.length-1;
+      const txt=(last?'⚓ '+G.mission.name.toUpperCase():'WAYPOINT '+(G.wpIdx+1))
+               +' · '+fmtB(Math.hypot(rx_,ry_));
+      sctx.textAlign='center'; sctx.font='600 '+(11*dp)+'px Arial';
+      if(along>10){
+        const pt=proj(lat,wp.depth,Math.min(along,LOOK));
+        let x=clamp(pt[0],px0+80*dp,px0+pw-80*dp);     // trzymaj znacznik w kadrze
+        // …i poza minimapą, która i tak rysuje się na wierzchu i zjadłaby opis
+        const g=miniGeom();
+        if(Math.hypot(x-g.mx,pt[1]-g.my)<g.mr+46*dp) x=Math.min(x,g.mx-g.mr-56*dp);
+        sctx.strokeStyle='rgba(120,230,240,0.85)'; sctx.lineWidth=2*dp;
+        sctx.beginPath(); sctx.arc(x,pt[1],13*dp,0,TAU); sctx.stroke();
+        sctx.beginPath(); sctx.moveTo(x,pt[1]-23*dp); sctx.lineTo(x,pt[1]-16*dp);
+        sctx.moveTo(x,pt[1]+16*dp); sctx.lineTo(x,pt[1]+23*dp); sctx.stroke();
+        sctx.fillStyle='rgba(140,225,235,0.9)';
+        sctx.fillText(txt, x, pt[1]-31*dp);
+      } else {
+        // cel za rufą — strzałka przy tej krawędzi, w którą trzeba zawrócić
+        const side=lat>=0?1:-1, x=vpx+side*pw*0.40, y=horizon;
+        sctx.fillStyle='rgba(120,230,240,0.85)';
+        sctx.beginPath(); sctx.moveTo(x+side*17*dp,y); sctx.lineTo(x,y-13*dp); sctx.lineTo(x,y+13*dp);
+        sctx.closePath(); sctx.fill();
+        sctx.fillStyle='rgba(140,225,235,0.85)';
+        sctx.fillText('ZAWRÓĆ · '+txt, x, y-25*dp);
+      }
+      sctx.textAlign='left';
+    }
+    // opad morski — rysowany na końcu, bo unosi się między nami a dnem
+    drawSnow(sctx,proj,dp,0.9);
+    // linia kursu
+    sctx.strokeStyle='rgba(232,163,60,0.4)'; sctx.setLineDash([5*dp,5*dp]); sctx.lineWidth=1.2*dp;
+    sctx.beginPath(); sctx.moveTo(vpx,py0+ph); sctx.lineTo(vpx,horizon); sctx.stroke(); sctx.setLineDash([]);
+    sctx.restore();
+    // Dół kadru gaśnie w mrok: bliskie oczka są rozdmuchane perspektywą i nic nie
+    // wnoszą, a ciemna podstawa daje oku punkt spoczynku i miejsce na minimapę.
+    const vig=sctx.createLinearGradient(0,py0+ph*0.62,0,py0+ph);
+    vig.addColorStop(0,'rgba(2,6,10,0)'); vig.addColorStop(1,'rgba(2,6,10,0.92)');
+    sctx.fillStyle=vig; sctx.fillRect(px0,py0+ph*0.62,pw,ph*0.38);
+    sctx.font='600 '+(10*dp)+'px Arial';
+    sctx.fillStyle='rgba(140,225,235,0.7)';
+    sctx.fillText('TERRAIN · WIDOK WZDŁUŻ KURSU · TAB: MAPA', 22*dp, H-62*dp);
+    sctx.fillStyle='rgba(232,163,60,0.55)';
+    sctx.fillText('POMARAŃCZOWE GRZBIETY = NA TWOJEJ GŁĘBOKOŚCI', 22*dp, H-48*dp);
+  }
+  // --- compass rose (top-left, north-up, needle = heading) ---
+  function compassRose(){
+  const rx=64*dp, ry=150*dp, rr=30*dp;
+  sctx.strokeStyle='rgba(140,195,210,0.45)'; sctx.lineWidth=1*dp;
+  sctx.beginPath(); sctx.arc(rx,ry,rr,0,TAU); sctx.stroke();
+  sctx.beginPath(); sctx.arc(rx,ry,3*dp,0,TAU); sctx.fillStyle='rgba(160,210,225,0.7)'; sctx.fill();
+  sctx.strokeStyle='rgba(140,195,210,0.30)';
+  sctx.beginPath(); sctx.moveTo(rx-rr,ry); sctx.lineTo(rx+rr,ry); sctx.moveTo(rx,ry-rr); sctx.lineTo(rx,ry+rr); sctx.stroke();
+  sctx.fillStyle='rgba(180,225,235,0.85)'; sctx.font='600 '+(11*dp)+'px Arial'; sctx.textAlign='center';
+  sctx.fillText('N',rx,ry-rr-5*dp); sctx.fillText('S',rx,ry+rr+13*dp);
+  sctx.fillText('W',rx-rr-9*dp,ry+4*dp); sctx.fillText('E',rx+rr+9*dp,ry+4*dp);
+  const na=d2r(S.hdg-90);
+  sctx.strokeStyle='rgba(120,230,240,0.9)'; sctx.lineWidth=1.6*dp;
+  sctx.beginPath(); sctx.moveTo(rx,ry); sctx.lineTo(rx+Math.cos(na)*(rr-6*dp), ry+Math.sin(na)*(rr-6*dp)); sctx.stroke();
+  sctx.textAlign='left';
+  }
+  // --- depth scale (left edge) ---
+  function depthScale(){
+  sctx.font=(11*dp)+'px Arial'; sctx.fillStyle='rgba(150,200,215,0.55)';
+  for(let k=-2;k<=2;k++){
+    const dpt=Math.round((S.depth+k*50)/50)*50;
+    if(dpt<0) continue;
+    const y=cy+(dpt-S.depth)*2.4*dp;
+    if(y<210*dp||y>H-178*dp) continue;
+    sctx.fillText(String(dpt), 12*dp, y+4*dp);
+    sctx.strokeStyle='rgba(150,200,215,0.18)';
+    sctx.beginPath(); sctx.moveTo(34*dp,y); sctx.lineTo(46*dp,y); sctx.stroke();
+  }
+  sctx.fillText('m', 12*dp, H-26*dp);
+  }
+  // --- bearing scale (bottom edge, centered on heading) ---
+  function bearingScale(){
+  sctx.font=(11*dp)+'px Arial';
+  const ppd=4.4*dp;
+  sctx.textAlign='center';
+  for(let deg=0;deg<360;deg+=30){
+    let dd=((deg-S.hdg+540)%360)-180;
+    const x=cx+dd*ppd;
+    if(x<70*dp||x>W-40*dp) continue;
+    sctx.fillStyle='rgba(150,200,215,0.55)';
+    sctx.fillText(String(deg).padStart(3,'0')+'°', x, H-14*dp);
+    sctx.strokeStyle='rgba(150,200,215,0.25)';
+    sctx.beginPath(); sctx.moveTo(x,H-30*dp); sctx.lineTo(x,H-38*dp); sctx.stroke();
+  }
+  sctx.textAlign='left';
+  }
+  // Na minimapie opisy zeszłyby do ~4 px — pomijamy je zamiast rysować szum.
+  function label(txt,x,y,col){
+    if(lite) return;
+    sctx.fillStyle=col; sctx.font='600 '+(11*dp)+'px Arial'; sctx.fillText(txt,x,y);
+  }
+}
+function drawSubIcon(ctx,x,y,ang,s,col){
+  ctx.save(); ctx.translate(x,y); ctx.rotate(ang+Math.PI/2);
+  ctx.fillStyle=col;
+  ctx.beginPath();
+  ctx.moveTo(0,-s*1.6); ctx.lineTo(s*0.7,-s*0.4); ctx.lineTo(s*0.7,s*1.2);
+  ctx.lineTo(s*0.35,s*1.6); ctx.lineTo(-s*0.35,s*1.6); ctx.lineTo(-s*0.7,s*1.2);
+  ctx.lineTo(-s*0.7,-s*0.4); ctx.closePath(); ctx.fill();
+  ctx.fillRect(-s*0.15,-s*2.1,s*0.3,s*0.6);
+  ctx.restore();
+}
+
+/* heading tape */
+function drawHdgTape(){
+  const W=hdgCv.width,H=hdgCv.height,dp=devicePixelRatio;
+  hctx.clearRect(0,0,W,H);
+  const hdg=G.sub.hdg, pxPerDeg=2.2*dp;
+  hctx.font=(10*dp)+'px Arial'; hctx.textAlign='center';
+  for(let d=-40;d<=40;d+=5){
+    const deg=((Math.round(hdg/5)*5+d)%360+360)%360;
+    const x=W/2+(deg-hdg+((hdg-deg>180)?360:(deg-hdg>180)?-360:0))*pxPerDeg;
+    if(x<0||x>W) continue;
+    const major=deg%30===0;
+    hctx.strokeStyle='rgba(120,180,195,'+(major?0.7:0.3)+')';
+    hctx.beginPath(); hctx.moveTo(x,H); hctx.lineTo(x,H-(major?12:6)*dp); hctx.stroke();
+    if(major){ hctx.fillStyle='rgba(150,200,215,0.7)'; hctx.fillText(String(deg).padStart(3,'0'),x,H-16*dp); }
+  }
+  hctx.strokeStyle='#59d6e2'; hctx.lineWidth=2*dp;
+  hctx.beginPath(); hctx.moveTo(W/2,H); hctx.lineTo(W/2,4*dp); hctx.stroke();
+}
+
+/* dock approach view */
+/* Podejście do doku — widok z dziobu, nie z lotu ptaka.
+   Kamera siedzi w łodzi, oś korytarza biegnie w głąb kadru. Zejście z osi
+   (D.lateral) przesuwa cały świat w bok, więc błąd widać w obrazie, zanim
+   spadnie wskaźnik ALIGN. Ściany stoją dokładnie tam, gdzie zaczyna się
+   kara za wyjście z korytarza (|lateral| > 170). */
+const DOCK_HALF=170;
+function drawDock(){
+  const W=dockCv.width,H=dockCv.height,dp=devicePixelRatio;
+  dctx.clearRect(0,0,W,H);
+  const S=G.sub, D=G.dock, M=G.mission;
+  const cx=W/2, f=360*dp, z0=80;
+  const horizon=H*0.46;
+  const proj=(lat,d,z)=>{ const s=f/(z+z0); return [cx+(lat-D.lateral)*s, horizon+(d-S.depth)*0.9*s]; };
+  // toń
+  const murk=dctx.createLinearGradient(0,0,0,H);
+  murk.addColorStop(0,'rgba(5,17,24,1)');
+  murk.addColorStop(0.46,'rgba(11,38,50,1)');
+  murk.addColorStop(1,'rgba(2,7,11,1)');
+  dctx.fillStyle=murk; dctx.fillRect(0,0,W,H);
+  dctx.save();
+  dctx.translate(cx,horizon); dctx.rotate(D.roll); dctx.translate(-cx,-horizon);
+  const floor=Math.max(seabed(S.x,S.y), S.depth+40);
+  // Dok stoi na wysokości pułapu z listy kontrolnej: jesteś za głęboko —
+  // widzisz go nad sobą. Płycej — nic nie udaje błędu, bo warunek jest spełniony.
+  const dockD=Math.min(S.depth, Math.max(190, M.dmin+10));
+  const seg=60, EDGE=[-DOCK_HALF,DOCK_HALF];
+  const line=(a,b,col,w)=>{ dctx.strokeStyle=col; dctx.lineWidth=w*dp;
+    dctx.beginPath(); dctx.moveTo(a[0],a[1]); dctx.lineTo(b[0],b[1]); dctx.stroke(); };
+  // --- dno: poprzeczki zaczepione o dok, więc same płyną na nas ---
+  for(let p=-360;p<=660;p+=seg){
+    const z=D.dist-p; if(z<8) continue;
+    const fade=clamp(1-z/720,0.05,1)*0.62;
+    line(proj(-DOCK_HALF*2.6,floor,z),proj(DOCK_HALF*2.6,floor,z),'rgba(74,168,186,'+fade.toFixed(3)+')',1);
+  }
+  for(const e of [-2.6,-1,0,1,2.6]){
+    const lat=e*DOCK_HALF;
+    line(proj(lat,floor,Math.max(8,D.dist+360)),proj(lat,floor,8),'rgba(74,168,186,0.22)',1);
+  }
+  // --- ściany korytarza: pionowe żebra + relingi ---
+  // Korytarz jest zaczepiony o dok, nie o kamerę — dlatego zbyt duża głębokość
+  // przesuwa całą rurę w górę kadru zamiast jechać razem z tobą.
+  const out=Math.abs(D.lateral)>DOCK_HALF;
+  const wallCol=out?'rgba(255,106,60,0.85)':(Math.abs(D.lateral)>DOCK_HALF*0.72?'rgba(232,163,60,0.7)':'rgba(90,200,220,0.6)');
+  const cTop=dockD-115, cBot=dockD+115;
+  for(const lat of EDGE){
+    line(proj(lat,cTop,Math.max(8,D.dist+300)),proj(lat,cTop,8),wallCol,1.4);
+    line(proj(lat,cBot,Math.max(8,D.dist+300)),proj(lat,cBot,8),wallCol,1.4);
+    for(let p=-300;p<=660;p+=seg){
+      const z=D.dist-p; if(z<8) continue;
+      const fade=clamp(1-z/760,0.08,1);
+      line(proj(lat,cTop,z),proj(lat,cBot,z),
+        (out?'rgba(255,106,60,':'rgba(90,200,220,')+(fade*0.5).toFixed(3)+')',1);
+    }
+  }
+  // (Chevrony na osi celowo pominięte — leżą na wysokości oka, więc widać je
+  //  z kantu jako ukośne kreski i tylko zaśmiecają wnętrze bramownicy.)
+  // --- bramownica doku na D.dist ---
+  const gz=Math.max(10,D.dist);
+  const gh=95, gw=112;
+  const A=proj(-gw,dockD-gh,gz), B=proj(gw,dockD-gh,gz), C=proj(gw,dockD+gh,gz), Dd=proj(-gw,dockD+gh,gz);
+  dctx.strokeStyle='rgba(120,230,240,0.85)'; dctx.lineWidth=2.2*dp;
+  dctx.beginPath(); dctx.moveTo(A[0],A[1]); dctx.lineTo(B[0],B[1]);
+  dctx.lineTo(C[0],C[1]); dctx.lineTo(Dd[0],Dd[1]); dctx.closePath(); dctx.stroke();
+  // pierścienie chwytne — kurczą się, im bliżej jesteś
+  const ctr=proj(0,dockD,gz), sc=f/(gz+z0);
+  const pulse=(Math.sin(G.t*3)+1)/2;
+  dctx.lineWidth=1.2*dp; dctx.setLineDash([5*dp,6*dp]);
+  for(let i=1;i<=3;i++){
+    dctx.strokeStyle='rgba(90,200,220,'+(0.34-i*0.07)+')';
+    dctx.beginPath(); dctx.ellipse(ctr[0],ctr[1],i*46*sc,i*32*sc,0,0,TAU); dctx.stroke();
+  }
+  dctx.setLineDash([]);
+  dctx.strokeStyle='rgba(155,232,240,'+(0.3+0.45*pulse)+')'; dctx.lineWidth=2*dp;
+  dctx.beginPath(); dctx.ellipse(ctr[0],ctr[1],(26+pulse*9)*sc,(26+pulse*9)*sc,0,0,TAU); dctx.stroke();
+  dctx.fillStyle='#9be8f0';
+  dctx.beginPath(); dctx.arc(ctr[0],ctr[1],Math.max(2*dp,5*sc),0,TAU); dctx.fill();
+  // Opad morski. drawSnow liczy lat względem łodzi, a proj odejmuje D.lateral
+  // (bo świat jest w osi korytarza) — doliczamy je z powrotem, żeby się zniosło.
+  drawSnow(dctx,(lat,d,z)=>proj(lat+D.lateral,d,z),dp,0.75);
+  dctx.restore();
+  // --- celownik osi łodzi: gdy pokrywa się z bramownicą, jesteś w osi ---
+  const rr=30*dp;
+  dctx.strokeStyle=D.align>=85?'rgba(120,230,240,0.9)':'rgba(232,163,60,0.75)';
+  dctx.lineWidth=1.4*dp;
+  for(const s of [-1,1]){
+    dctx.beginPath(); dctx.moveTo(cx+s*rr,horizon); dctx.lineTo(cx+s*rr*0.45,horizon); dctx.stroke();
+    dctx.beginPath(); dctx.moveTo(cx,horizon+s*rr); dctx.lineTo(cx,horizon+s*rr*0.45); dctx.stroke();
+  }
+  // --- dziób własnej łodzi: bez niego kadr nie ma skali ---
+  const bow=dctx.createLinearGradient(0,H-60*dp,0,H);
+  bow.addColorStop(0,'rgba(1,4,7,0.55)'); bow.addColorStop(1,'rgba(1,4,7,1)');
+  dctx.fillStyle=bow;
+  dctx.beginPath(); dctx.moveTo(cx-190*dp,H); dctx.quadraticCurveTo(cx,H-56*dp,cx+190*dp,H); dctx.closePath(); dctx.fill();
+  dctx.strokeStyle='rgba(140,200,215,0.55)'; dctx.lineWidth=2*dp;
+  dctx.beginPath(); dctx.moveTo(cx-190*dp,H); dctx.quadraticCurveTo(cx,H-56*dp,cx+190*dp,H); dctx.stroke();
+  // --- odczyty ---
+  dctx.font='600 '+(12*dp)+'px Arial';
+  dctx.fillStyle='rgba(120,210,225,0.8)';
+  dctx.fillText('CURRENT '+(1.2+M.storm*0.35).toFixed(1)+' kn EAST →', W-190*dp, 30*dp);
+  dctx.fillStyle='rgba(150,200,215,0.75)';
+  dctx.fillText(Math.max(0,Math.round(D.dist))+' m TO CAPTURE', 18*dp, H-20*dp);
+  dctx.fillStyle=out?'#ff6a3c':'rgba(150,200,215,0.75)';
+  dctx.fillText((D.lateral>=0?'+':'')+Math.round(D.lateral)+' m OFF AXIS'+(out?' · WALL CONTACT':''), 18*dp, H-38*dp);
+  if(!D.mode){
+    dctx.fillStyle='rgba(232,163,60,0.9)';
+    dctx.fillText('CHOOSE: MANUAL DOCK OR ASSISTED ALIGNMENT', cx-150*dp, H-20*dp);
+  }
+}
+
+/* mission chart map */
+/* Karta tras jako ARKUSZ NAWIGACYJNY, nie tło pod ikonami. Elementy wzięte
+   wprost z map morskich, każdy niosący informację:
+   - ramka arkusza z siatką południkową i opisami na marginesie (A–F / 1–3),
+   - SONDOWANIA PUNKTOWE — rozsypane liczby głębokości. To najbardziej
+     rozpoznawalna cecha mapy morskiej i jednocześnie pierwsza rzecz, po której
+     gracz widzi, że lewa część akwenu jest płytka, a prawa to rów,
+   - SZRAF MIELIZN pod 45° tam, gdzie dno wypłyca się do progu — na mapach tak
+     znaczy się obszary osychające,
+   - podziałka liniowa z podziałem, strzałka północy, metryczka.
+   Sondowania i mielizny liczy `terr()`, więc karta nie kłamie — pokazuje ten sam
+   teren, po którym potem płyniesz. */
+const SERIF="Georgia,'Times New Roman',Times,serif";
+function drawMissionMap(){
+  sizeCanvases();
+  const W=mapCv.width,H=mapCv.height,dp=devicePixelRatio;
+  if(!W) return;
+  const g=mctx;
+  g.clearRect(0,0,W,H);
+  const M=22*dp;                                   // margines z siatką
+  const X=u=>M+u*(W-2*M), Y=v=>M+v*(H-2*M);
+  const lw={out:1.6*dp, hid:1*dp, thin:0.6*dp};
+
+  /* --- mielizny: szraf 45° tam, gdzie dno wypłyca --- */
+  g.save();
+  const shoal=new Path2D(), cell=13*dp;
+  for(let px=M;px<W-M;px+=cell) for(let py=M;py<H-M;py+=cell)
+    if(terr(px*3.1,py*3.7)>0.42) shoal.rect(px,py,cell,cell);
+  g.clip(shoal);
+  g.strokeStyle='rgba(70,150,170,0.22)'; g.lineWidth=lw.thin;
+  g.beginPath();
+  for(let x=-H;x<W+H;x+=7*dp){ g.moveTo(x,H); g.lineTo(x+H,0); }
+  g.stroke();
+  g.restore();
+
+  /* --- siatka + opisy marginesu --- */
+  g.strokeStyle='rgba(70,150,170,0.13)'; g.lineWidth=lw.thin;
+  g.beginPath();
+  for(let i=1;i<6;i++){ const x=X(i/6); g.moveTo(x,M); g.lineTo(x,H-M); }
+  for(let j=1;j<3;j++){ const y=Y(j/3); g.moveTo(M,y); g.lineTo(W-M,y); }
+  g.stroke();
+  g.font=(9.5*dp)+'px '+SERIF; g.fillStyle='rgba(110,160,180,0.5)';
+  g.textAlign='center';
+  for(let i=0;i<6;i++) g.fillText('ABCDEF'[i], X((i+0.5)/6), M-7*dp);
+  g.textAlign='right';
+  for(let j=0;j<3;j++) g.fillText(String(j+1), M-7*dp, Y((j+0.5)/3)+3*dp);
+
+  /* --- sondowania punktowe --- */
+  g.font=(9*dp)+'px '+SERIF; g.textAlign='center';
+  for(let px=M+30*dp;px<W-M-24*dp;px+=82*dp)
+    for(let py=M+24*dp;py<H-M-18*dp;py+=46*dp){
+      const jx=px+((px*7+py*13)%17)*dp, jy=py+((px*11+py*5)%13)*dp;
+      if(jx>W-M-14*dp||jy>H-M-8*dp) continue;
+      const t=terr(jx*3.1,jy*3.7);
+      const d=Math.round((520-t*300)/5)*5;
+      g.fillStyle= t>0.42 ? 'rgba(150,200,215,0.30)' : 'rgba(120,175,195,0.20)';
+      g.fillText(String(d), jx, jy);
+    }
+
+  /* --- ramka arkusza --- */
+  g.strokeStyle='rgba(70,150,170,0.55)'; g.lineWidth=lw.hid;
+  g.strokeRect(M,M,W-2*M,H-2*M);
+  g.lineWidth=lw.thin; g.strokeStyle='rgba(70,150,170,0.3)';
+  g.strokeRect(M-5*dp,M-5*dp,W-2*M+10*dp,H-2*M+10*dp);
+
+  const pts=[[0.18,0.28,'LANTERN REEF'],[0.30,0.72,'GREYPOINT DEPTHS'],[0.56,0.30,'NORTHPOINT DOCK'],
+             [0.88,0.48,'ASTERION TRENCH'],[0.72,0.78,'MIDNIGHT TRENCH'],[0.44,0.55,'BLACKWATER STRAIT']];
+
+  /* --- trasa: linia kreskowa ze znacznikami odcinków --- */
+  const leg=[0,1,2,4,3];
+  g.setLineDash([6*dp,5*dp]); g.strokeStyle='rgba(90,220,230,0.5)'; g.lineWidth=1.3*dp;
+  g.beginPath();
+  leg.forEach((k,i)=>{ const x=X(pts[k][0]),y=Y(pts[k][1]); i?g.lineTo(x,y):g.moveTo(x,y); });
+  g.stroke(); g.setLineDash([]);
+  // poprzeczki na połowie każdego odcinka — znak podziału trasy na etapy
+  g.strokeStyle='rgba(90,200,220,0.45)'; g.lineWidth=lw.hid;
+  for(let i=0;i<leg.length-1;i++){
+    const a=[X(pts[leg[i]][0]),Y(pts[leg[i]][1])], b=[X(pts[leg[i+1]][0]),Y(pts[leg[i+1]][1])];
+    const mx=(a[0]+b[0])/2, my=(a[1]+b[1])/2;
+    const ang=Math.atan2(b[1]-a[1],b[0]-a[0])+Math.PI/2;
+    g.beginPath();
+    g.moveTo(mx+Math.cos(ang)*5*dp,my+Math.sin(ang)*5*dp);
+    g.lineTo(mx-Math.cos(ang)*5*dp,my-Math.sin(ang)*5*dp);
+    g.stroke();
+  }
+
+  /* --- porty i cieśnina --- */
+  pts.forEach((p,i)=>{
+    const x=X(p[0]), y=Y(p[1]);
+    if(i===5){
+      g.font='italic '+(11*dp)+'px '+SERIF; g.fillStyle='rgba(120,180,195,0.55)';
+      g.textAlign='center'; g.fillText(p[2],x,y);
+      return;
+    }
+    const sel=i===2;
+    g.strokeStyle= sel?'#59d6e2':'rgba(90,200,220,0.7)'; g.lineWidth=sel?lw.out:lw.hid;
+    g.beginPath();
+    for(let k=0;k<6;k++){ const a=d2r(60*k-30);
+      const qx=x+Math.cos(a)*10*dp, qy=y+Math.sin(a)*10*dp; k?g.lineTo(qx,qy):g.moveTo(qx,qy); }
+    g.closePath(); g.stroke();
+    g.beginPath(); g.arc(x,y,2.2*dp,0,TAU); g.fillStyle=sel?'#9be8f0':'rgba(150,200,215,0.8)'; g.fill();
+    g.font=(10.5*dp)+'px '+SERIF;
+    const left=p[0]>0.66;                 // przy prawej krawędzi opis idzie w lewo
+    g.textAlign=left?'right':'left';
+    g.fillStyle= sel?'#bff0f6':'rgba(160,205,220,0.85)';
+    g.fillText(p[2], x+(left?-15*dp:15*dp), y+4*dp);
+  });
+
+  /* --- strzałka północy --- */
+  const nx=W-M-26*dp, ny=M+30*dp;
+  g.strokeStyle='rgba(120,180,200,0.6)'; g.lineWidth=lw.hid;
+  g.beginPath(); g.moveTo(nx,ny+16*dp); g.lineTo(nx,ny-16*dp); g.stroke();
+  g.beginPath(); g.moveTo(nx,ny-20*dp); g.lineTo(nx-4.5*dp,ny-9*dp); g.lineTo(nx+4.5*dp,ny-9*dp);
+  g.closePath(); g.fillStyle='rgba(150,205,220,0.75)'; g.fill();
+  g.font=(9.5*dp)+'px '+SERIF; g.textAlign='center'; g.fillStyle='rgba(150,205,220,0.75)';
+  g.fillText('N',nx,ny+27*dp);
+
+  /* --- podziałka liniowa --- */
+  const bx=M+14*dp, by=H-M-16*dp, bw=110*dp;
+  g.strokeStyle='rgba(120,180,200,0.6)'; g.lineWidth=lw.hid;
+  g.strokeRect(bx,by,bw,5*dp);
+  g.fillStyle='rgba(120,180,200,0.5)';
+  for(let i=0;i<4;i+=2) g.fillRect(bx+i*bw/4,by,bw/4,5*dp);
+  g.font=(9*dp)+'px '+SERIF; g.textAlign='center'; g.fillStyle='rgba(130,180,195,0.65)';
+  g.fillText('0',bx,by-5*dp); g.fillText('2 km',bx+bw,by-5*dp);
+
+  /* --- metryczka arkusza --- */
+  const tw=210*dp, th=40*dp, tx=W-M-tw-8*dp, ty=H-M-th-8*dp;
+  g.fillStyle='rgba(5,11,15,0.88)'; g.fillRect(tx,ty,tw,th);
+  g.strokeStyle='rgba(70,150,170,0.5)'; g.lineWidth=lw.hid;
+  g.strokeRect(tx,ty,tw,th);
+  g.beginPath(); g.moveTo(tx,ty+15*dp); g.lineTo(tx+tw,ty+15*dp);
+  g.strokeStyle='rgba(70,150,170,0.32)'; g.lineWidth=lw.thin; g.stroke();
+  g.textAlign='left';
+  g.font=(9*dp)+'px '+SERIF; g.fillStyle='rgba(110,160,180,0.75)';
+  g.fillText('BLACKWATER STRAIT — KARTA TRAS',tx+7*dp,ty+11*dp);
+  g.font='italic '+(10*dp)+'px '+SERIF; g.fillStyle='rgba(150,200,215,0.85)';
+  g.fillText('sondowania w metrach',tx+7*dp,ty+29*dp);
+
+  /* --- opis wybranej trasy: odnośnik z półką --- */
+  const m=MISSIONS[selMission], px=X(pts[2][0]), py=Y(pts[2][1]);
+  const cx=px+34*dp, cy=py-52*dp;
+  g.strokeStyle='rgba(90,200,220,0.6)'; g.lineWidth=lw.thin;
+  g.beginPath(); g.moveTo(px+9*dp,py-7*dp); g.lineTo(cx,cy); g.lineTo(cx+150*dp,cy); g.stroke();
+  g.font=(12*dp)+'px '+SERIF; g.textAlign='left'; g.fillStyle='#bff0f6';
+  g.fillText(m.name.toUpperCase(),cx+4*dp,cy-16*dp);
+  g.font='italic '+(10.5*dp)+'px '+SERIF; g.fillStyle='rgba(150,200,215,0.8)';
+  g.fillText('eta '+m.eta+' · '+m.diff.toLowerCase()+' · '+m.dmin+'–'+m.dmax+' m',cx+4*dp,cy-4*dp);
+  g.textAlign='left';
+}
+
+/* ---------------- MISSIONS: route strips ---------------- */
+/* one scale for every route, so the depth column can be read as a chart */
+const DEPTH_SCALE=1200;
+const STRIP_H=48;
+const COND={
+  '⛈':{t:'SZTORM',    c:'storm'},
+  '≋':{t:'PRĄD',      c:'cur'},
+  '⚠':{t:'ZAGROŻENIA',c:'haz'},
+  '⚓':{t:'TRUDNY DOK',c:'haz'},
+};
+const DIFF={Medium:{n:2,c:'var(--amber)'},Hard:{n:3,c:'var(--orange)'},Extreme:{n:4,c:'var(--red)'}};
+
+function renderRoutes(){
+  const box=$('route-strips'); box.innerHTML='';
+  MISSIONS.forEach(m=>{
+    const sel=m.id===selMission;
+    const t0=clamp(m.dmin/DEPTH_SCALE,0,1)*100, t1=clamp(m.dmax/DEPTH_SCALE,0,1)*100;
+    const bandPx=(t1-t0)/100*STRIP_H;
+    // tie the numbers to the band edges when there's room, otherwise one label
+    const labels = bandPx>=16
+      ? '<span style="top:'+(t0)+'%;margin-top:-5px">'+m.dmin+'</span>'+
+        '<span style="top:'+(t1)+'%;margin-top:-7px">'+m.dmax+'</span>'
+      : '<span style="top:'+((t0+t1)/2)+'%;margin-top:-6px">'+m.dmin+'–'+m.dmax+'</span>';
+    const d=DIFF[m.diff]||DIFF.Medium;
+    let notches=''; for(let i=0;i<4;i++) notches+='<b style="background:'+(i<d.n?d.c:'#122029')+'"></b>';
+    const chips=m.cond.map(c=>{
+      const k=COND[c]; return k?'<span class="chip '+k.c+'">'+k.t+'</span>':'';
+    }).join('');
+
+    const el=document.createElement('div');
+    el.className='rstrip'+(sel?' sel':'');
+    el.tabIndex=0;
+    el.setAttribute('role','button');
+    el.setAttribute('aria-pressed',sel?'true':'false');
+    el.innerHTML=
+      '<div class="mark">'+(sel?'★':'○')+'</div>'+
+      '<div><div class="nm">'+m.name.toUpperCase()+'</div><div class="chips">'+chips+'</div></div>'+
+      '<div class="rs-depth">'+
+        '<div class="rs-dtrack"><div class="rs-dband" style="top:'+t0+'%;height:'+(t1-t0)+'%"></div></div>'+
+        '<div class="rs-dlab">'+labels+'</div>'+
+      '</div>'+
+      '<div class="rs-eta">'+m.eta+'</div>'+
+      '<div><div class="dmeter">'+notches+'</div>'+
+        '<div class="dlabel" style="color:'+d.c+'">'+m.diff.toUpperCase()+'</div></div>'+
+      '<div class="rs-reward">'+m.reward+'</div>'+
+      '<div class="rs-cr">'+m.credits+'<small>CR BAZOWE</small></div>';
+    const pick=()=>{ selMission=m.id; renderRoutes(); drawMissionMap(); };
+    el.onclick=pick;
+    el.ondblclick=()=>setupMission(m);
+    el.onkeydown=e=>{
+      if(e.key!=='Enter' && e.key!==' ') return;
+      e.preventDefault();
+      if(sel){ setupMission(m); return; }
+      pick();   // re-render drops the node, so put focus back on the new one
+      const n=$('route-strips').children[MISSIONS.indexOf(m)];
+      if(n) n.focus();
+    };
+    box.appendChild(el);
+  });
+}
+$('btn-launch').onclick=()=>setupMission(MISSIONS[selMission]);
+
+/* ---------------- UPGRADE SHOP ---------------- */
+const UPGRADES=[
+  {key:'sonar', icon:'📡', name:'SONAR AMPLIFIER', cost:300,
+   desc:'+40% zasięgu pingu, echa widoczne 3 s dłużej. Widzisz zagrożenia, zanim one zobaczą Ciebie.'},
+  {key:'batt', icon:'🔋', name:'AUX BATTERY CELL', cost:250,
+   desc:'−25% poboru energii (napęd, sonar, manewry dokowania). Dalsze trasy bez blackoutu.'},
+  {key:'hull', icon:'🛡', name:'REINFORCED HULL', cost:350,
+   desc:'−30% obrażeń kadłuba od kolizji, sztormów i szurania po dnie.'},
+];
+function renderShop(){
+  const row=$('shop-row'); row.innerHTML='';
+  const cr=G.stats.credits;
+  $('m-credits').textContent=cr;
+  UPGRADES.forEach(u=>{
+    const owned=upg()[u.key];
+    const card=document.createElement('div');
+    card.className='shop-card';
+    card.innerHTML='<span class="nm">'+u.icon+' '+u.name+'</span><span class="ds">'+u.desc+'</span>'+
+      (owned ? '<span class="shop-owned">✓ ZAINSTALOWANO</span>'
+             : '<button class="shop-buy" '+(cr<u.cost?'disabled':'')+'>KUP · '+u.cost+' CR</button>');
+    if(!owned){
+      card.querySelector('.shop-buy').onclick=()=>{
+        if(G.stats.credits<u.cost) return;
+        G.stats.credits-=u.cost; upg()[u.key]=true;
+        toast(u.name+' — ZAINSTALOWANO');
+        renderShop();
+      };
+    }
+    row.appendChild(card);
+  });
+}
+
+/* ---------------- VESSEL (przekrój + stocznia) ---------------- */
+const SYSTEMS=[
+  {k:'sonar',  n:'SONAR ARRAY',  eff:()=>'Zasięg pingu: '+Math.round((G.sub.silent===2?1500:900)*(upg().sonar?1.4:1)*(0.6+0.4*sys().sonar/100))+' m'},
+  {k:'ballast',n:'BALLAST TANKS',eff:()=>'Sprawność trymu: '+Math.round(sysF('ballast')*100)+'%'},
+  {k:'engine', n:'ENGINE ROOM',  eff:()=>'Prędkość maks.: '+(8*0.95*sysF('engine')).toFixed(1)+' kn'},
+  {k:'battery',n:'BATTERY BANK', eff:()=>'Zużycie energii: +'+Math.round((100-sys().battery)/1.5)+'%'},
+  {k:'control',n:'CONTROL ROOM', eff:()=>'Dryf przy dokowaniu: +'+Math.round((100-sys().control)/2.5)+'%'},
+  {k:'cargo',  n:'CARGO HOLD',   eff:()=>'Zajęte sloty: '+G.cargo.length+' / 6'},
+];
+/* ================= PLANSZA TECHNICZNA (VESSEL) =================
+   Arkusz kreślarski, nie ilustracja. Reguły przejęte z plansz Admiralicji:
+   - TRZY grubości linii o ścisłym znaczeniu (LW). Wcześniej w kodzie chodziło
+     dziesięć różnych wartości bez żadnej reguły — to jedna rzecz, która najbardziej
+     odróżnia rysunek techniczny od „ładnego wykresu".
+   - SZRAF = materiał przecięty płaszczyzną cięcia. To informacja, nie ozdoba:
+     kreskujemy kadłub sztywny (45°) i zbiorniki balastowe (45° w drugą stronę,
+     rzadziej) — dokładnie tak, jak na arkuszu rozróżnia się sąsiadujące elementy.
+     Kontrszraf zarezerwowany dla przedziału w stanie krytycznym (na arkuszach tak
+     znaczy się element do wymiany).
+   - Opisy na odnośnikach z półką, pismem szeryfowym pochyłym.
+   - Metryczka, skala, numeracja wręgów wzdłuż linii bazowej.
+   Cała plansza jest generowana: ~300 elementów, których nie da się utrzymać ręcznie.
+   Budowana RAZ (buildVesselPlate); renderVessel() tylko podmienia barwy i liczby. */
+const LW={out:1.9, hid:1.1, thin:0.6};
+const PL_INK='#6fc9d8', PL_INK2='#31606f', PL_TXT='#a8ccd8', PL_DIM='#5f8b99';
+const SVGNS='http://www.w3.org/2000/svg';
+function sv(tag,at,txt){
+  const e=document.createElementNS(SVGNS,tag);
+  for(const k in at) e.setAttribute(k,at[k]);
+  if(txt!=null) e.textContent=txt;
+  return e;
+}
+/* Równoległe kreski pod 45° przez prostokąt. Zwraca JEDNĄ ścieżkę zamiast wielu
+   <line>, bo przy sześciu przedziałach to różnica 40 vs 400 elementów w DOM. */
+function hatchD(x0,y0,x1,y1,step,back){
+  const h=y1-y0; let d='';
+  const s0=Math.floor((x0-(back?0:h))/step)*step;
+  for(let x=s0;x<x1+h;x+=step)
+    d += back ? 'M'+x+' '+y0+'L'+(x+h)+' '+y1
+              : 'M'+x+' '+y1+'L'+(x+h)+' '+y0;
+  return d;
+}
+const PL={
+  cy:216, phx0:178, phx1:742, phy0:180, phy1:252,
+  casing:'M62 216C96 188 140 172 190 170L700 170C770 172 820 188 858 216'
+        +'C820 244 770 260 700 262L190 262C140 260 96 244 62 216Z',
+  ph:'M196 180L724 180A18 18 0 0 1 742 198L742 234A18 18 0 0 1 724 252L196 252'
+     +'A18 18 0 0 1 178 234L178 198A18 18 0 0 1 196 180Z',
+  comp:[
+    {k:'sonar',   x0:178, x1:268, n:'SONAR ARRAY'},
+    {k:'cargo',   x0:268, x1:388, n:'CARGO HOLD'},
+    {k:'control', x0:388, x1:492, n:'CONTROL ROOM'},
+    {k:'battery', x0:492, x1:604, n:'BATTERY BANK'},
+    {k:'engine',  x0:604, x1:742, n:'ENGINE ROOM'},
+  ],
+};
+function buildVesselPlate(){
+  const svg=$('vessel-svg');
+  if(!svg || svg.firstChild) return;                 // struktura się nie zmienia
+  const F=document.createDocumentFragment();
+  const defs=sv('defs');
+  const add=(t,a,x)=>{ const e=sv(t,a,x); F.appendChild(e); return e; };
+  const clip=(id,child,rule)=>{
+    const c=sv('clipPath', rule?{id:id,'clip-rule':rule}:{id:id});
+    c.appendChild(child); defs.appendChild(c);
+  };
+  const hatch=(id,x0,y0,x1,y1,step,back,col,op)=>sv('path',{id:id,
+    d:hatchD(x0,y0,x1,y1,step,back),stroke:col,'stroke-opacity':op,
+    'stroke-width':LW.thin,fill:'none'});
+
+  clip('pl-ph', sv('path',{d:PL.ph}));
+  clip('pl-void', sv('path',{d:PL.casing+' '+PL.ph}), 'evenodd');
+  for(const c of PL.comp)
+    clip('pl-c-'+c.k, sv('rect',{x:c.x0,y:PL.phy0-4,width:c.x1-c.x0,height:PL.phy1-PL.phy0+8}));
+  F.appendChild(defs);
+
+  /* --- ramka arkusza: podwójna linia, jak na planszy --- */
+  add('rect',{x:14,y:14,width:912,height:380,fill:'none',stroke:PL_INK2,'stroke-width':LW.hid});
+  add('rect',{x:20,y:20,width:900,height:368,fill:'none',stroke:PL_INK2,'stroke-width':LW.thin,'stroke-opacity':0.6});
+
+  /* --- blok tytułowy --- */
+  add('text',{x:470,y:48,'text-anchor':'middle','font-size':21,fill:'#e2f4f8',class:'ttl'},'KESTREL-7');
+  add('line',{x1:392,y1:56,x2:548,y2:56,stroke:PL_INK2,'stroke-width':LW.thin});
+  add('text',{x:470,y:70,'text-anchor':'middle','font-size':11,fill:PL_DIM,class:'an'},
+      'compact research submersible — przekrój wzdłużny');
+  add('text',{x:470,y:86,'text-anchor':'middle','font-size':10.5,fill:PL_DIM,class:'fig'},'SKALA 1:100');
+
+  /* --- tabela wymiarów (lewy górny róg) --- */
+  const TB=[['długość całkowita','31·40 m'],['szerokość','4·15 m'],['zanurzenie','3·05 m'],
+            ['wyporność','212 t'],['głęb. niszcząca','wg karty trasy']];
+  const tx=42, ty=34, tw=232, rh=17;
+  add('rect',{x:tx,y:ty,width:tw,height:rh*(TB.length+1),fill:'none',stroke:PL_INK2,'stroke-width':LW.hid});
+  add('line',{x1:tx,y1:ty+rh,x2:tx+tw,y2:ty+rh,stroke:PL_INK2,'stroke-width':LW.hid});
+  add('line',{x1:tx+142,y1:ty,x2:tx+142,y2:ty+rh*(TB.length+1),stroke:PL_INK2,'stroke-width':LW.thin});
+  add('text',{x:tx+8,y:ty+12,'font-size':9.5,fill:PL_DIM,class:'ttl'},'WYMIAR');
+  add('text',{x:tx+150,y:ty+12,'font-size':9.5,fill:PL_DIM,class:'ttl'},'WARTOŚĆ');
+  TB.forEach((r,i)=>{
+    const y=ty+rh*(i+1);
+    if(i) add('line',{x1:tx,y1:y,x2:tx+tw,y2:y,stroke:PL_INK2,'stroke-width':LW.thin,'stroke-opacity':0.5});
+    add('text',{x:tx+8,y:y+12,'font-size':10.5,fill:PL_TXT,class:'an'},r[0]);
+    add('text',{x:tx+150,y:y+12,'font-size':10.5,fill:PL_TXT,class:'fig'},r[1]);
+  });
+
+  /* --- przekrój poprzeczny na śródokręciu (prawy górny róg) --- */
+  const sx=800, sy=84;
+  add('text',{x:sx,y:34,'text-anchor':'middle','font-size':9.5,fill:PL_DIM,class:'ttl'},'PRZEKRÓJ NA ŚRÓDOKRĘCIU');
+  clip('pl-sect', sv('path',{d:'M'+(sx-46)+' '+sy+'a46 38 0 1 0 92 0a46 38 0 1 0 -92 0'
+                              +'M'+(sx-25)+' '+sy+'a25 25 0 1 0 50 0a25 25 0 1 0 -50 0'}), 'evenodd');
+  const sg=sv('g',{'clip-path':'url(#pl-sect)'});
+  sg.appendChild(hatch(null,sx-48,sy-40,sx+48,sy+40,8,true,PL_INK,0.30));
+  F.appendChild(sg);
+  add('ellipse',{cx:sx,cy:sy,rx:46,ry:38,fill:'none',stroke:PL_INK,'stroke-opacity':0.75,'stroke-width':LW.out});
+  add('circle',{cx:sx,cy:sy,r:25,fill:'none',stroke:PL_INK,'stroke-opacity':0.85,'stroke-width':LW.out});
+
+  /* --- ZBIORNIKI BALASTOWE: pierścień między poszyciem a kadłubem sztywnym --- */
+  const gv=sv('g',{'clip-path':'url(#pl-void)'});
+  gv.appendChild(sv('rect',{id:'vs-c-ballast',x:58,y:160,width:806,height:112,fill:'#59d6e2','fill-opacity':0.035}));
+  gv.appendChild(hatch('vs-h-ballast',58,158,862,272,15,true,PL_INK,0.26));
+  F.appendChild(gv);
+
+  /* --- PRZEDZIAŁY kadłuba sztywnego --- */
+  const gh=sv('g',{'clip-path':'url(#pl-ph)'});
+  for(const c of PL.comp){
+    const g=sv('g',{'clip-path':'url(#pl-c-'+c.k+')'});
+    g.appendChild(sv('rect',{id:'vs-c-'+c.k,x:c.x0,y:PL.phy0,width:c.x1-c.x0,
+                             height:PL.phy1-PL.phy0,fill:'#59d6e2','fill-opacity':0.06}));
+    g.appendChild(hatch('vs-h-'+c.k,c.x0,PL.phy0,c.x1,PL.phy1,7,false,PL_INK,0.32));
+    // kontrszraf — na arkuszach znaczy element do wymiany; tu: stan krytyczny
+    g.appendChild(hatch('vs-x-'+c.k,c.x0,PL.phy0,c.x1,PL.phy1,7,true,'#ff6a3c',0));
+    gh.appendChild(g);
+  }
+  F.appendChild(gh);
+
+  /* --- grodzie --- */
+  for(const c of PL.comp.slice(1))
+    add('line',{x1:c.x0,y1:PL.phy0,x2:c.x0,y2:PL.phy1,stroke:PL_INK,'stroke-opacity':0.55,'stroke-width':LW.hid});
+
+  /* --- obrysy i wyposażenie --- */
+  add('path',{d:PL.casing,fill:'none',stroke:PL_INK,'stroke-opacity':0.85,'stroke-width':LW.out});
+  add('path',{d:PL.ph,fill:'none',stroke:PL_INK,'stroke-opacity':0.9,'stroke-width':LW.out});
+  add('path',{d:'M402 170L410 132L466 132L472 170',fill:'none',stroke:PL_INK,'stroke-opacity':0.85,'stroke-width':LW.out});
+  add('line',{x1:424,y1:132,x2:424,y2:102,stroke:PL_INK,'stroke-opacity':0.7,'stroke-width':LW.hid});
+  add('line',{x1:444,y1:132,x2:444,y2:112,stroke:PL_INK,'stroke-opacity':0.5,'stroke-width':LW.hid});
+  add('ellipse',{cx:884,cy:216,rx:8,ry:34,fill:'none',stroke:PL_INK,'stroke-opacity':0.8,'stroke-width':LW.out});
+  add('line',{x1:858,y1:216,x2:876,y2:216,stroke:PL_INK,'stroke-opacity':0.7,'stroke-width':LW.out});
+  add('path',{d:'M806 216L838 202M806 216L838 230',fill:'none',stroke:PL_INK,'stroke-opacity':0.5,'stroke-width':LW.hid});
+
+  /* --- odczyty stanu w przedziałach --- */
+  for(const c of PL.comp)
+    add('text',{id:'vs-pc-'+c.k,x:(c.x0+c.x1)/2,y:PL.cy+5,'text-anchor':'middle',
+                'font-size':15,'font-weight':'700',fill:PL_INK,class:'fig'},'100%');
+
+  /* --- linia bazowa z numeracją wręgów --- */
+  const by=276;
+  add('line',{x1:62,y1:by,x2:858,y2:by,stroke:PL_INK2,'stroke-width':LW.hid});
+  for(let i=0;i<=32;i++){
+    const x=62+i*(796/32), maj=i%4===0;
+    add('line',{x1:x,y1:by,x2:x,y2:by+(maj?7:4),stroke:PL_INK2,'stroke-width':LW.thin});
+    if(maj) add('text',{x:x,y:by+18,'text-anchor':'middle','font-size':9.5,fill:'#456a78',class:'fig'},String(i*4));
+  }
+  add('text',{x:62,y:by-6,'font-size':9.5,fill:'#456a78',class:'ttl'},'WRĘGI');
+
+  /* --- opisy na odnośnikach: półka + pismo szeryfowe pochyłe --- */
+  const call=(px,py,ex,ey,dir,txt)=>{
+    add('path',{d:'M'+px+' '+py+'L'+ex+' '+ey+'L'+(ex+dir*56)+' '+ey,fill:'none',
+                stroke:PL_INK2,'stroke-width':LW.thin});
+    add('circle',{cx:px,cy:py,r:1.7,fill:PL_INK2});
+    add('text',{x:ex+dir*6,y:ey-5,'text-anchor':dir>0?'start':'end','font-size':11,
+                fill:PL_TXT,class:'an'},txt);
+  };
+  call(223,PL.phy0, 250,156, 1,'sonar array');
+  call(437,132,     560,112, 1,'control room / kiosk');
+  call(673,PL.phy0, 700,156, 1,'engine room');
+  call(884,190,     884,148,-1,'śruba napędowa');
+  call(328,PL.phy1, 300,314,-1,'cargo hold');
+  call(548,PL.phy1, 576,314, 1,'battery bank');
+  call(150,258,     120,314,-1,'ballast tanks');
+  add('text',{id:'vs-pc-ballast',x:114,y:327,'text-anchor':'end','font-size':13,
+              'font-weight':'700',fill:PL_INK,class:'fig'},'100%');
+
+  /* --- stopka: klucz szrafów --- */
+  const ky=340;
+  add('text',{x:196,y:ky,'font-size':9.5,fill:'#456a78',class:'ttl'},'OZNACZENIA');
+  const key=(x,y,back,col,op,lbl)=>{
+    const id='pl-k'+x;
+    clip(id, sv('rect',{x:x,y:y,width:26,height:14}));
+    const g=sv('g',{'clip-path':'url(#'+id+')'});
+    g.appendChild(hatch(null,x,y,x+26,y+14,7,back,col,op));
+    F.appendChild(g);
+    add('rect',{x:x,y:y,width:26,height:14,fill:'none',stroke:PL_INK2,'stroke-width':LW.thin});
+    add('text',{x:x+32,y:y+11,'font-size':10.5,fill:PL_DIM,class:'an'},lbl);
+  };
+  key(196,ky+8,false,PL_INK,0.32,'kadłub sztywny');
+  key(340,ky+8,true,PL_INK,0.30,'zb. balastowe');
+  key(474,ky+8,true,'#ff6a3c',0.75,'stan krytyczny');
+  add('text',{x:196,y:ky+34,'font-size':10.5,fill:'#3f5a66',class:'an'},
+      'Uszkodzenia przedziałów wpływają na osiągi. Naprawa w stoczni — zakładka niżej.');
+
+  /* --- metryczka --- */
+  const mx=706, my=326;
+  add('rect',{x:mx,y:my,width:214,height:54,fill:'none',stroke:PL_INK2,'stroke-width':LW.hid});
+  add('line',{x1:mx,y1:my+19,x2:mx+214,y2:my+19,stroke:PL_INK2,'stroke-width':LW.thin});
+  add('line',{x1:mx,y1:my+37,x2:mx+214,y2:my+37,stroke:PL_INK2,'stroke-width':LW.thin});
+  add('text',{x:mx+8,y:my+13,'font-size':9.5,fill:PL_DIM,class:'ttl'},'BIURO KONSTRUKCYJNE');
+  add('text',{x:mx+8,y:my+32,'font-size':9.5,fill:PL_TXT,class:'fig'},'ARK. 03 — KADŁUB I PRZEDZIAŁY');
+  add('text',{id:'vs-plate-rev',x:mx+8,y:my+50,'font-size':9.5,fill:PL_TXT,class:'fig'},'REW. 1 · ZANURZEŃ 0');
+
+  svg.appendChild(F);
+}
+
+function condColor(c){ return c>=80?'#59d6e2':c>=50?'#e8a33c':'#ff6a3c'; }
+function renderVessel(){
+  const S=sys();
+  buildVesselPlate();
+  // Plansza: szraf zostaje geometrią (przecięcie płaszczyzną cięcia się nie zmienia),
+  // a stan przedziału niosą barwa i natężenie kreskowania. Kontrszraf zapala się
+  // dopiero poniżej progu krytycznego — na arkuszu tak znaczy się element do wymiany.
+  SYSTEMS.forEach(s=>{
+    const c=Math.round(S[s.k]), col=condColor(c);
+    const rect=$('vs-c-'+s.k), pc=$('vs-pc-'+s.k), h=$('vs-h-'+s.k), x=$('vs-x-'+s.k);
+    if(rect){ rect.setAttribute('fill',col); rect.setAttribute('fill-opacity',(0.04+0.11*(1-c/100)).toFixed(3)); }
+    if(pc){ pc.textContent=c+'%'; pc.setAttribute('fill',col); }
+    // Balast to pierścień o powierzchni ~40% arkusza: ta sama skala co dla
+    // przedziałów zamalowałaby resztę rysunku. Ostrzeżenie niosą liczba i lista.
+    const big=s.k==='ballast';
+    if(h){ h.setAttribute('stroke',col);
+           h.setAttribute('stroke-opacity',(big?0.16+0.10*(1-c/100):0.22+0.24*(1-c/100)).toFixed(2)); }
+    if(x) x.setAttribute('stroke-opacity', c<40 ? (0.28+0.42*(1-c/40)).toFixed(2) : 0);
+  });
+  const rev=$('vs-plate-rev');
+  if(rev) rev.textContent='REW. '+(G.stats.dives+1)+' · ZANURZEŃ '+G.stats.dives;
+  // systems list
+  const list=$('sys-list'); list.innerHTML='';
+  SYSTEMS.forEach(s=>{
+    const c=Math.round(S[s.k]), col=condColor(c);
+    const div=document.createElement('div'); div.className='sysrow';
+    div.innerHTML='<div class="l1"><span class="nm">'+s.n+'</span>'+
+      '<span class="track"><span class="fill" style="width:'+c+'%;background:'+col+'"></span></span>'+
+      '<span class="pc" style="color:'+col+'">'+c+'%</span></div>'+
+      '<div class="l2">'+s.eff()+'</div>';
+    list.appendChild(div);
+  });
+  // header stats
+  const avg=Math.round(Object.values(S).reduce((a,b)=>a+b,0)/6);
+  $('vs-avg').textContent=avg+'%'; $('vs-avg').style.color=condColor(avg);
+  $('vs-cargo-n').textContent=G.cargo.length+' / 6';
+  $('vs-credits').textContent=G.stats.credits;
+  // cargo grid — ten sam sprite co na sonarze, żeby ładunek w luku dało się
+  // rozpoznać po kształcie zapamiętanym z echa, nie po odczytaniu nazwy
+  const grid=$('cargo-grid'); grid.innerHTML='';
+  for(let i=0;i<6;i++){
+    const it=G.cargo[i];
+    const d=document.createElement('div');
+    d.className='cslot'+(it?' full':'');
+    if(it){
+      const cv=document.createElement('canvas');
+      cv.className='cspr'; cv.width=12*3; cv.height=12*3;
+      drawSprite(cv.getContext('2d'),SPR_OF[it.name],'62,207,142',cv.width/2,cv.height/2,3,1);
+      const txt=document.createElement('div');
+      txt.innerHTML='<span>'+it.name+'</span><span class="v">+'+it.val+' CR</span>';
+      d.appendChild(cv); d.appendChild(txt);
+    } else {
+      d.innerHTML='<span>— PUSTY SLOT —</span>';
+    }
+    grid.appendChild(d);
+  }
+  // shipyard
+  const missing=Object.values(S).reduce((a,b)=>a+(100-b),0);
+  const cost=Math.ceil(missing)*2;
+  const btn=$('btn-repair'), info=$('repair-info');
+  if(missing<1){
+    info.textContent='Wszystkie systemy w pełnej sprawności. Kestrel-7 gotowa do zanurzenia.';
+    btn.textContent='NAPRAWA — ZBĘDNA'; btn.disabled=true;
+  } else if(G.running){
+    info.textContent='Łączne zużycie: '+Math.round(missing)+' pkt. Naprawa możliwa tylko w doku — dokończ lub przerwij bieżące zanurzenie.';
+    btn.textContent='NAPRAWA — '+cost+' CR'; btn.disabled=true;
+  } else {
+    info.textContent='Łączne zużycie: '+Math.round(missing)+' pkt (2 CR / pkt). Naprawa przywraca wszystkie przedziały do 100%.';
+    btn.textContent='NAPRAWA — '+cost+' CR'; btn.disabled=G.stats.credits<cost;
+  }
+  btn.onclick=()=>{
+    if(G.running||G.stats.credits<cost||missing<1) return;
+    G.stats.credits-=cost;
+    Object.keys(S).forEach(k=>S[k]=100);
+    toast('NAPRAWA ZAKOŃCZONA — WSZYSTKIE SYSTEMY 100%');
+    renderVessel();
+  };
+}
+
+/* ---------------- LOGBOOK ---------------- */
+function renderLogbook(){
+  const st=G.stats;
+  $('lb-dockings').textContent=st.dockings;
+  $('lb-clear').textContent=String(st.clearance).padStart(2,'0');
+  $('lb-credits').textContent=st.credits;
+  $('lb-dist').textContent=st.dist.toFixed(1)+' km';
+  $('lb-deep').textContent=st.deepest+' m';
+  $('lb-batt').textContent=st.bestBatt===null?'—':st.bestBatt+'%';
+  $('lb-storms').textContent=st.storms;
+  if(st.best){
+    $('lb-best-route').textContent='BEST RUN · '+st.best.route.toUpperCase();
+    $('lb-best-time').textContent=st.best.time;
+    $('lb-best-ctx').textContent='MAX DEPTH '+st.best.depth+' m';
+    $('lb-badge').innerHTML='<span class="badge">⚓ BADGE: STEADY HAND</span>';
+  }
+  const tb=$('dive-rows');
+  if(st.dives.length){
+    tb.innerHTML='';
+    st.dives.forEach(d=>{
+      const tr=document.createElement('tr');
+      tr.innerHTML='<td>'+d.date+'</td><td>'+d.dest+'</td><td class="oc-'+d.oc+'">'+d.outcome+'</td><td>'+d.time+'</td><td>'+d.depth+' m</td>';
+      tb.appendChild(tr);
+      if(d.note){
+        const nr=document.createElement('tr');
+        nr.innerHTML='<td colspan="5" class="lb-note">✓ '+d.note+'</td>';
+        tb.appendChild(nr);
+      }
+    });
+  }
+}
+
+/* ---------------- MAIN LOOP ---------------- */
+let last=performance.now();
+function frame(now){
+  if(G.paused){ last=now; requestAnimationFrame(frame); return; }
+  const dt=Math.min((now-last)/1000,0.1); last=now;
+  if(G.running){
+    G.t+=dt;
+    if(G.mode==='dive') updateDive(dt);
+    else if(G.mode==='dock') updateDock(dt);
+    updateCam(dt); updateSnow(dt);
+    // sonar ping cadence: faster near hazards / on final approach
+    AU.pingT-=dt;
+    if(AU.pingT<=0){
+      if(G.mode==='dock'){ sonarPing(); G.pingFlash=1; }
+      else if(G.sub.silent!==1){ firePing(); }   // PASSIVE = nasłuch, bez pingu
+      let near=1e9;
+      for(const h of G.hazards) near=Math.min(near,Math.hypot(h.x-G.sub.x,h.y-G.sub.y));
+      AU.pingT = G.mode==='dock' ? 1.2 : near<450 ? 1.4 : 2.6;
+    }
+    G.pingFlash=Math.max(0,(G.pingFlash||0)-dt*0.8);
+    // hull creaks under strain or storm
+    if((G.storm.phase==='active'||G.sub.hull>70) && Math.random()<dt*0.5) creak();
+    if(AU.humG) AU.humG.gain.value=0.035+0.02*(G.sub.thr/8)+(G.storm.phase==='active'?0.03:0);
+  }
+  updateHUD();
+  if(G.tab==='vessel'){ G.vsT=(G.vsT||0)-dt; if(G.vsT<=0){ renderVessel(); G.vsT=0.8; } }
+  if(G.tab==='dive'){
+    if(G.mode==='dock') drawDock(); else drawSonar();
+    drawHdgTape();
+    if(G.retro){
+      if(G.mode==='dock') pixelate(dockCv,dctx); else pixelate(sonar,sctx);
+    }
+  }
+  requestAnimationFrame(frame);
+}
+
+/* retro CRT: downsample + nearest-neighbour upscale */
+const ppc=document.createElement('canvas'), ppx=ppc.getContext('2d');
+function pixelate(cv,ctx){
+  const factor=2*devicePixelRatio;
+  const w=Math.max(2,Math.floor(cv.width/factor)), h=Math.max(2,Math.floor(cv.height/factor));
+  if(ppc.width!==w||ppc.height!==h){ ppc.width=w; ppc.height=h; }
+  ppx.imageSmoothingEnabled=true;
+  ppx.clearRect(0,0,w,h);
+  ppx.drawImage(cv,0,0,w,h);
+  ctx.save();
+  ctx.imageSmoothingEnabled=false;
+  ctx.clearRect(0,0,cv.width,cv.height);
+  ctx.drawImage(ppc,0,0,w,h,0,0,cv.width,cv.height);
+  // phosphor tint
+  ctx.globalCompositeOperation='lighter';
+  ctx.fillStyle='rgba(20,60,50,0.05)';
+  ctx.fillRect(0,0,cv.width,cv.height);
+  ctx.restore();
+}
+
+/* ================= DEPTH RAIL =================
+   Shared by the dive screen and the pause plate. Scale runs surface→crush,
+   so the bug's distance to the floor line is the same read in both places. */
+function railMax(){ return G.mission.dmax*1.18; }
+function railPct(d){ return clamp(d/railMax(),0,1)*100; }
+function buildRailTicks(root){
+  const tr=root.querySelector('.dr-track');
+  tr.querySelectorAll('.dr-tick').forEach(n=>n.remove());
+  const max=railMax();
+  const step = max>900?200 : max>450?100 : 50;
+  const frag=document.createDocumentFragment();
+  for(let d=step; d<max; d+=step){
+    const t=document.createElement('div');
+    t.className='dr-tick'+(d%(step*2)===0?' maj':'');
+    t.style.top=railPct(d)+'%';
+    t.innerHTML='<i>'+d+'</i>';
+    frag.appendChild(t);
+  }
+  tr.insertBefore(frag,tr.firstChild);
+}
+function paintRail(root){
+  const S=G.sub,M=G.mission;
+  const band=root.querySelector('.dr-band');
+  const top=railPct(M.dmin);
+  band.style.top=top+'%';
+  band.style.height=(railPct(M.dmax)-top)+'%';
+  root.querySelector('.dr-crush').style.top=railPct(M.dmax)+'%';
+  root.querySelector('.dr-floor').style.top=railPct(seabed(S.x,S.y))+'%';
+  root.querySelector('.dr-tgt').style.top=
+    railPct(clamp(G.targetDepth-S.ballast*1.6,40,M.dmax+140))+'%';
+  const bug=root.querySelector('.dr-bug');
+  bug.style.top=railPct(S.depth)+'%';
+  bug.firstElementChild.textContent=Math.round(S.depth);
+}
+
+/* ================= PAUSE / SETTINGS ================= */
+let pauseStart=0;
+function openPause(){
+  if(G.paused) return;
+  if($('overlay').classList.contains('show')) return;  // dive results own the screen
+  G.paused=true; pauseStart=performance.now();
+  for(const k in keys) keys[k]=false;   // don't resume mid-turn on a held arrow
+  hdgHold=0;
+  const diving=G.running;
+  $('pz-title').textContent = diving?'ALL STOP':'USTAWIENIA';
+  $('pz-ctx').innerHTML = diving
+    ? 'Łódź utrzymuje pozycję — czas misji zatrzymany. <b>ESC</b> wraca do nurkowania.'
+    : 'Brak aktywnego nurkowania. <b>ESC</b> zamyka panel.';
+  $('pz-abort').style.display = diving?'':'none';
+  $('pz-resume').textContent = diving?'WZNÓW':'ZAMKNIJ';
+  buildRailTicks($('pz-rail')); paintRail($('pz-rail'));
+  renderPauseStats();
+  syncSettingsUI();
+  $('pause').classList.add('show');
+  $('pz-resume').focus();
+}
+function closePause(){
+  if(!G.paused) return;
+  G.paused=false;
+  G.pausedMs += performance.now()-pauseStart;   // keep run time honest
+  $('pause').classList.remove('show');
+  resetConfirm();
+}
+function togglePause(){ G.paused?closePause():openPause(); }
+
+function renderPauseStats(){
+  const S=G.sub,M=G.mission;
+  const clear=Math.max(0,seabed(S.x,S.y)-S.depth);
+  const secs=(performance.now()-G.startTime-G.pausedMs)/1000;
+  const rows=[
+    ['TRASA',      M.name.toUpperCase(), ''],
+    ['GŁĘBOKOŚĆ',  Math.round(S.depth)+' m', ''],
+    ['DO DNA',     Math.round(clear)+' m', clear<25?'bad':clear<60?'warn':''],
+    ['KURS',       String(Math.round(S.hdg)%360).padStart(3,'0')+'°', ''],
+    ['PRĘDKOŚĆ',   S.spd.toFixed(1)+' kn', ''],
+    ['BATERIA',    Math.round(S.batt)+'%', S.batt<25?'bad':S.batt<50?'warn':''],
+    ['KADŁUB',     Math.round(S.hull)+'%', S.hull>70?'bad':S.hull>45?'warn':''],
+    ['WAYPOINT',   Math.min(G.wpIdx+1,G.wpts.length)+' / '+G.wpts.length, ''],
+    ['ŁADUNEK',    (G.cargo?G.cargo.length:0)+' / 6', ''],
+    ['CZAS MISJI', G.running?fmtT(secs):'—', ''],
+  ];
+  $('pz-stats').innerHTML=rows.map(r=>
+    '<div class="pz-stat"><span class="l">'+r[0]+'</span><span class="v '+r[2]+'">'+r[1]+'</span></div>').join('');
+}
+
+/* ================= LEGENDA =================
+   Zasada: ikona to próbka, nie ilustracja. Gdzie się da, rysuje ją ta sama
+   funkcja co ekran gry (drawSubIcon, blipHazard, blipSalvage, drawSprite),
+   a kolory pochodzą z tej samej palety (q3dPal, CSS depth-rail). Ikona,
+   która rozjedzie się z ekranem, myli bardziej, niż pomaga.
+   Rysowane raz — panel jest statyczny, legenda nie musi oddychać. */
+const LG={
+  own(x,w,h,d){
+    x.strokeStyle='rgba(120,230,240,0.5)'; x.lineWidth=1*d;
+    x.beginPath(); x.arc(w/2,h/2,11*d,0,TAU); x.stroke();
+    drawSubIcon(x,w/2,h/2,-Math.PI/2,4.2*d,'#9be8f0');
+  },
+  wp(x,w,h,d){
+    x.strokeStyle='rgba(90,220,230,0.5)'; x.lineWidth=1.4*d;
+    x.setLineDash([5*d,6*d]);
+    x.beginPath(); x.moveTo(3*d,h/2); x.lineTo(w-3*d,h/2); x.stroke();
+    x.setLineDash([]);
+    x.strokeStyle='rgba(90,220,230,0.8)';
+    x.beginPath(); x.arc(w/2,h/2,5.5*d,0,TAU); x.stroke();
+  },
+  dock(x,w,h,d){
+    x.strokeStyle='rgba(90,220,230,0.8)'; x.lineWidth=1.4*d;
+    x.strokeRect(w/2-10*d,h/2-10*d,20*d,20*d);
+    x.fillStyle='rgba(120,230,240,0.9)'; x.font=(11*d)+'px Arial';
+    x.textAlign='center'; x.textBaseline='middle';
+    x.fillText('⚓',w/2,h/2+d);
+  },
+  rings(x,w,h,d){
+    x.strokeStyle='rgba(70,150,170,0.55)'; x.lineWidth=1*d;
+    x.setLineDash([4*d,4.5*d]);
+    for(const r of [4,9,14]){ x.beginPath(); x.arc(w/2,h/2,r*d,0,TAU); x.stroke(); }
+    x.setLineDash([]);
+  },
+  ping(x,w,h,d){
+    for(const [r,a] of [[5,0.6],[10,0.34],[15,0.15]]){
+      x.strokeStyle='rgba(90,220,230,'+a+')'; x.lineWidth=2*d;
+      x.beginPath(); x.arc(w/2,h/2,r*d,0,TAU); x.stroke();
+    }
+  },
+  cont(x,w,h,d){
+    for(let i=0;i<3;i++){
+      x.strokeStyle='rgba(60,140,160,'+(0.55-i*0.13)+')'; x.lineWidth=1*d;
+      x.beginPath(); x.ellipse(w/2,h/2,(4.5+i*5)*d,(3+i*3.4)*d,0.5,0,TAU); x.stroke();
+    }
+  },
+  blipH(x,w,h,d){ blipHazard(x,w/2,h/2,8*d,'rgba(255,106,60,0.95)',d); },
+  sprH (x,w,h,d){ drawSprite(x,'WRECK','255,106,60',w/2,h/2,Math.max(1,Math.round(2*d)),1); },
+  blipS(x,w,h,d){ blipSalvage(x,w/2,h/2,7*d,'rgba(62,207,142,0.95)',d); },
+  sprS (x,w,h,d){ drawSprite(x,'CRATE','62,207,142',w/2,h/2,Math.max(1,Math.round(2*d)),1); },
+  stale(x,w,h,d){ blipHazard(x,w/2,h/2,8*d,'rgba(255,106,60,0.18)',d); },
+  /* Węzły liczone raz, żeby ikona punktów i ikona krawędzi opisywały tę samą
+     siatkę — inaczej legenda pokazałaby dwie różne rzeczy pod jednym pojęciem. */
+  _nodes(w,h,d){
+    const hz=h*0.28, half=w/2-2*d, out=[];
+    for(let i=1;i<=4;i++){
+      const t=i/4, y=hz+(h-hz)*t*t, sp=3*d+(half-3*d)*t*t, row=[];
+      for(const c of [-2,-1,0,1,2]) row.push([w/2+c*sp/2, y, (1+1.4*t)*d]);
+      out.push(row);
+    }
+    return out;
+  },
+  dots(x,N,col,grow){
+    x.fillStyle=col;
+    for(const row of N) for(const n of row){
+      const p=n[2]+(grow||0);
+      x.fillRect(n[0]-p/2,n[1]-p/2,p,p);
+    }
+  },
+  grid(x,w,h,d){ LG.dots(x,LG._nodes(w,h,d),'rgba(120,220,238,0.85)'); },
+  fog(x,w,h,d){
+    // lewa połowa: warstwice (zbadane) — prawa: szraf (niezbadane)
+    x.strokeStyle='rgba(60,140,160,0.6)'; x.lineWidth=1*d;
+    for(let i=0;i<2;i++){
+      x.beginPath(); x.ellipse(w*0.28,h/2,(5+i*5)*d,(3.4+i*3.4)*d,0.4,0,TAU); x.stroke();
+    }
+    x.save();
+    x.beginPath(); x.rect(w*0.5,0,w*0.5,h); x.clip();
+    x.fillStyle='rgba(3,8,11,0.8)'; x.fillRect(0,0,w,h);
+    x.strokeStyle='rgba(70,150,170,0.5)'; x.lineWidth=1*d;
+    x.beginPath();
+    for(let k=-h;k<w+h;k+=5*d){ x.moveTo(k,h); x.lineTo(k+h,0); }
+    x.stroke();
+    x.restore();
+    x.strokeStyle='rgba(120,190,210,0.5)'; x.lineWidth=1*d;
+    x.beginPath(); x.moveTo(w*0.5,0); x.lineTo(w*0.5,h); x.stroke();
+  },
+  warm(x,w,h,d){
+    const N=LG._nodes(w,h,d);
+    LG.dots(x,[N[0],N[3]],'rgba(120,220,238,0.45)');
+    LG.dots(x,[N[1],N[2]],'rgba(255,122,72,0.95)',d);
+  },
+  lit(x,w,h,d){
+    const N=LG._nodes(w,h,d);
+    // krawędzie tylko w bliższej połowie — tędy fala już przeszła
+    x.strokeStyle='rgba(198,250,255,0.9)'; x.lineWidth=1.2*d;
+    x.beginPath();
+    for(let r=2;r<N.length;r++) for(let c=0;c<5;c++){
+      if(c<4){ x.moveTo(N[r][c][0],N[r][c][1]); x.lineTo(N[r][c+1][0],N[r][c+1][1]); }
+      if(r<N.length-1){ x.moveTo(N[r][c][0],N[r][c][1]); x.lineTo(N[r+1][c][0],N[r+1][c][1]); }
+    }
+    x.stroke();
+    LG.dots(x,N,'rgba(120,220,238,0.85)');
+  },
+  rock(x,w,h,d){
+    LG.grid(x,w,h,d);
+    drawSprite(x,'ROCK2','126,168,184',w/2-6*d,h*0.72-6*d,Math.max(1,Math.round(d)),0.85);
+    drawSprite(x,'ROCK1','214,132,86', w/2+9*d,h*0.86-5*d,Math.max(1,Math.round(d)),0.85);
+  },
+  snow(x,w,h,d){
+    for(const [px,py,a] of [[8,6,.5],[16,20,.3],[24,10,.45],[31,24,.2],
+                            [38,14,.4],[12,26,.28],[35,4,.3],[21,15,.5]]){
+      x.fillStyle='rgba(190,225,235,'+a+')';
+      x.fillRect(px*d,py*d,1.6*d,1.6*d);
+    }
+  },
+  rail(x,w,h,d){
+    const rx=w/2-6*d, rw=12*d;
+    x.fillStyle='#050b0f'; x.fillRect(rx,0,rw,h);
+    x.fillStyle='rgba(89,214,226,0.06)'; x.fillRect(rx,7*d,rw,13*d);        // pasmo robocze
+    x.strokeStyle='rgba(89,214,226,0.18)'; x.lineWidth=1*d;
+    x.beginPath(); x.moveTo(rx,7*d); x.lineTo(rx+rw,7*d);
+    x.moveTo(rx,20*d); x.lineTo(rx+rw,20*d); x.stroke();
+    x.fillStyle='rgba(150,190,140,0.55)'; x.fillRect(rx,25*d,rw,2*d);       // dno
+    x.fillStyle='rgba(150,190,140,0.14)'; x.fillRect(rx,27*d,rw,h-27*d);
+    x.strokeStyle='rgba(255,75,75,0.75)'; x.setLineDash([2.5*d,2.5*d]);
+    x.beginPath(); x.moveTo(rx,29*d); x.lineTo(rx+rw,29*d); x.stroke();     // CRUSH
+    x.strokeStyle='rgba(232,163,60,0.7)'; x.setLineDash([1.5*d,2*d]);
+    x.beginPath(); x.moveTo(rx,17*d); x.lineTo(rx+rw,17*d); x.stroke();     // głęb. docelowa
+    x.setLineDash([]);
+    x.fillStyle='#59d6e2'; x.fillRect(rx-3*d,11*d,rw+6*d,2*d);              // bug: Ty
+  },
+  wall(x,w,h,d){
+    x.strokeStyle='rgba(90,180,200,0.65)'; x.lineWidth=1.2*d;
+    x.beginPath();
+    x.moveTo(2*d,2*d);   x.lineTo(w/2-8*d,h/2);
+    x.moveTo(2*d,h-2*d); x.lineTo(w/2-8*d,h/2);
+    x.moveTo(w-2*d,2*d);   x.lineTo(w/2+8*d,h/2);
+    x.moveTo(w-2*d,h-2*d); x.lineTo(w/2+8*d,h/2);
+    x.stroke();
+  },
+  gantry(x,w,h,d){
+    x.strokeStyle='rgba(232,163,60,0.9)'; x.lineWidth=1.6*d;
+    x.strokeRect(w/2-12*d,h/2-8*d,24*d,16*d);
+    x.fillStyle='rgba(255,210,120,0.95)';
+    x.beginPath(); x.arc(w/2,h/2-8*d,2.2*d,0,TAU); x.fill();
+  },
+  cross(x,w,h,d){
+    x.strokeStyle='rgba(90,220,230,0.9)'; x.lineWidth=1.4*d;
+    x.beginPath();
+    x.moveTo(w/2-11*d,h/2); x.lineTo(w/2-4*d,h/2);
+    x.moveTo(w/2+4*d,h/2);  x.lineTo(w/2+11*d,h/2);
+    x.moveTo(w/2,h/2-10*d); x.lineTo(w/2,h/2-4*d);
+    x.moveTo(w/2,h/2+4*d);  x.lineTo(w/2,h/2+10*d);
+    x.stroke();
+  },
+  capture(x,w,h,d){
+    x.strokeStyle='rgba(90,220,230,0.7)'; x.lineWidth=1.2*d;
+    x.setLineDash([3*d,3*d]);
+    x.beginPath(); x.ellipse(w/2,h/2,16*d,7*d,0,0,TAU); x.stroke();
+    x.beginPath(); x.ellipse(w/2,h/2,9*d,3.8*d,0,0,TAU); x.stroke();
+    x.setLineDash([]);
+  },
+};
+
+/* pips: nie rysuję ich na canvasie — HUD ma je w DOM-ie, więc legenda
+   pokazuje dosłownie ten sam element. */
+const lgPips=(on,cls)=>{
+  let s='<span class="pips">';
+  for(let i=0;i<6;i++) s+='<span class="pip'+(i<on?' on '+cls:'')+'"></span>';
+  return s+'</span>';
+};
+
+const LEGEND=[
+ {h:'SONAR — WIDOK MAPY', rows:[
+   {ic:'own',   n:'TWOJA ŁÓDŹ',   t:'Zawsze na środku. Mapa jest zorientowana na północ — obraca się ikona, nie mapa.'},
+   {ic:'wp',    n:'WAYPOINT',     t:'Punkt trasy. Zaliczasz go samym przejściem w pobliżu; kolejny zapala się automatycznie.'},
+   {ic:'dock',  n:'DOK',          t:'Ostatni punkt trasy. Wejście w jego strefę przełącza ekran na podejście do doku.'},
+   {ic:'rings', n:'PIERŚCIENIE ZASIĘGU', t:'120, 300 i 520 m od łodzi. Do szybkiej oceny dystansu bez czytania liczb.'},
+   {ic:'ping',  n:'CZOŁO PINGU',  t:'Rozchodząca się fala aktywnego sonaru. Kontakt zapala się dopiero, gdy fala go dosięgnie — mapa nie wie nic z wyprzedzeniem.'},
+   {ic:'cont',  n:'WARSTWICE DNA', t:'Im gęściej, tym stromiej. Zbite pierścienie to ściana, nie zbocze.'},
+   {ic:'fog',   n:'GRANICA ROZPOZNANIA', t:'Zaszrafowane = akwen niezbadany, batymetrii tam nie masz. Odsłania go czoło pingu; w PASSIVE tylko wąski pas przy kadłubie. Trasa jest skartowana przed startem — poza jej korytarzem karta jest pusta.'},
+ ]},
+ {h:'KONTAKTY', rows:[
+   {ic:'blipH', n:'ROMB — ZAGROŻENIE', t:'Kontakt twardy, jeszcze nierozdzielony. Kolizja niszczy przedziały. Namiar i głębokość widać od razu.'},
+   {ic:'sprH',  n:'SYLWETKA POMARAŃCZOWA', t:'To samo zagrożenie z bliska: sonar rozdzielił kształt i podaje nazwę.'},
+   {ic:'blipS', n:'KWADRAT — ŁADUNEK', t:'Salvage do przejęcia. Wartość w CR podana zawsze, także przed rozpoznaniem.'},
+   {ic:'sprS',  n:'SYLWETKA ZIELONA', t:'Rozpoznany ładunek. Podpłyń bliżej niż zasięg rozdzielczości, żeby poznać typ.'},
+   {ic:'stale', n:'ECHO ZBLAKŁE', t:'Ostatnia znana pozycja. Sonar tam już nie sięga — kontakt mógł się przesunąć.'},
+ ], note:'Rozdzielczość zależy od anteny: <b>340 m</b> na starcie, <b>520 m</b> po ulepszeniu SONAR ARRAY, mniej przy uszkodzonym przedziale sonaru.'},
+ {h:'KATALOG SYLWETEK', spr:true,
+  note:'Zielone to ładunek do przejęcia, pomarańczowe — przeszkody. Nazwę zobaczysz na sonarze dopiero po rozdzieleniu kształtu.'},
+ {h:'WIDOK TERENU (TAB)', rows:[
+   {ic:'grid',  n:'PUNKTY SONDOWANIA', t:'Węzły siatki dna — surowe odczyty sonaru, po jednym na kierunek i odległość. Jedyna warstwa widoczna cały czas.'},
+   {ic:'warm',  n:'PUNKTY POMARAŃCZOWE', t:'Dno na Twojej głębokości. To jest to, w co uderzysz, jeśli nie zmienisz balastu.'},
+   {ic:'lit',   n:'KRAWĘDZIE Z PINGU', t:'Siatkę między punktami rysuje przechodząca fala i gaśnie w ~2.8 s. Krawędź to domysł, nie pomiar — dlatego ma ją rysować ten ping, który ją wytworzył.'},
+   {ic:'rock',  n:'GŁAZY I WYCHODNIE', t:'Sceneria dna — jedyna rzecz w kadrze o znanym rozmiarze, więc po niej oceniasz odległość do grzbietu. Barwę biorą z terenu pod sobą. Nie ma ich na mapie i nie da się w nie uderzyć.'},
+   {ic:'snow',  n:'OPAD MORSKI',  t:'Zawiesina w toni. Nie wpływa na nic — daje oku odniesienie do prędkości i przechyłu.'},
+ ]},
+ {h:'PRZYRZĄDY', rows:[
+   {ic:'rail',  n:'WSTĘGA GŁĘBOKOŚCI', t:'Powierzchnia u góry, dno na dole. Jasne pasmo = zakres roboczy trasy, <i>przerywana bursztynowa</i> = głębokość docelowa balastu, czerwona = CRUSH, cyjanowy znacznik = Ty.'},
+   {html:lgPips(6,''),      n:'BATTERY', t:'Zjada ją ciąg, ping i uszkodzony przedział baterii. Na zerze zostaje wynurzenie awaryjne.'},
+   {html:lgPips(3,'bad'),   n:'HULL PRESSURE', t:'Obciążenie kadłuba ciśnieniem — rośnie z głębokością i nie zeruje się samo. Rośnie skokowo po kolizjach.'},
+   {html:lgPips(5,'warn'),  n:'SONAR CONFIDENCE', t:'Jak bardzo mapa odpowiada rzeczywistości. Spada z głębokością, rośnie w trybie ACTIVE.'},
+ ], note:'SILENT RUNNING: <b>ACTIVE</b> pinguje najdalej i najczęściej, ale zjada baterię. <b>PASSIVE</b> tylko nasłuchuje — zero pingów, ograniczona prędkość, a w widoku terenu <i>zostają same punkty</i>: nikt nie rysuje krawędzi. <b>OFF</b> to kompromis.'},
+ {h:'PODEJŚCIE DO DOKU', rows:[
+   {ic:'wall',   n:'ŚCIANY KORYTARZA', t:'Stoją dokładnie tam, gdzie zaczyna się kara. Zrobią się bursztynowe, zanim je dotkniesz.'},
+   {ic:'gantry', n:'BRAMOWNICA',  t:'Wejście do doku na swojej głębokości. Widzisz ją nad sobą — jesteś za głęboko.'},
+   {ic:'cross',  n:'CELOWNIK',    t:'Oś Twojej łodzi. Cyjanowy przy alignment ≥ 85%, bursztynowy poniżej.'},
+   {ic:'capture',n:'STREFA PRZECHWYTU', t:'Przerywane elipsy przy bramownicy. Wejście w nią przy dobrym alignment kończy podejście.'},
+ ]},
+ {h:'KLAWISZE', keys:[
+   ['↑ / ↓','Ciąg — 0 do 8'],
+   ['← / →','Kurs'],
+   ['Z / X','Balast: zanurzanie / wynurzanie'],
+   ['S','Cykl SILENT RUNNING'],
+   ['P','Wynurzenie awaryjne'],
+   ['TAB','Mapa ⇄ teren 3D'],
+   ['H / E','Decyzja sztormowa: trzymaj kurs / skręć'],
+   ['ESC','Pauza i ten panel'],
+ ]},
+];
+
+let legendCols=0;
+function renderLegend(){
+  const n = innerWidth>1500?3 : innerWidth>1100?2 : 1;
+  if(n===legendCols) return;     // treść jest statyczna; przebudowa tylko przy zmianie układu
+  legendCols=n;
+  const dp=Math.min(devicePixelRatio||1,3);
+  const root=document.createElement('div');
+  root.className='lg-cols';
+  const cols=[];
+  for(let i=0;i<n;i++){
+    const c=document.createElement('div'); c.className='lg-col';
+    cols.push(c); root.appendChild(c);
+  }
+  $('pz-legend').innerHTML='';
+  $('pz-legend').appendChild(root);
+  const boxes=[];
+  for(const sec of LEGEND){
+    const box=document.createElement('div');
+    box.className='lg-sec';
+    box.innerHTML='<h3>'+sec.h+'</h3>';
+    if(sec.keys){
+      box.innerHTML+='<div class="lg-keys">'+sec.keys.map(k=>
+        '<b>'+k[0]+'</b><span>'+k[1]+'</span>').join('')+'</div>';
+    }
+    for(const r of sec.rows||[]){
+      const row=document.createElement('div');
+      row.className='lg-row';
+      const well=document.createElement('div');
+      well.className='lg-ic';
+      if(r.html){ well.innerHTML=r.html; }
+      else{
+        const cv=document.createElement('canvas');
+        cv.width=46*dp; cv.height=30*dp;
+        cv.style.width='46px'; cv.style.height='30px';
+        LG[r.ic](cv.getContext('2d'),cv.width,cv.height,dp);
+        well.appendChild(cv);
+      }
+      const tx=document.createElement('div');
+      tx.className='lg-tx';
+      tx.innerHTML='<div class="lg-n">'+r.n+'</div><div class="lg-t">'+r.t+'</div>';
+      row.appendChild(well); row.appendChild(tx);
+      box.appendChild(row);
+    }
+    // katalog sylwetek: gracz widzi kształt na sonarze i chce wiedzieć, co to jest
+    if(sec.spr){
+      const g=document.createElement('div');
+      g.className='lg-spr';
+      for(const name in SPR_OF){
+        const hazard=['DRIFTING CARGO CONTAINER','UNCHARTED WRECK'].includes(name);
+        const cell=document.createElement('div');
+        const cv=document.createElement('canvas');
+        cv.width=24*dp; cv.height=24*dp; cv.style.width='24px'; cv.style.height='24px';
+        drawSprite(cv.getContext('2d'),SPR_OF[name],hazard?'255,106,60':'62,207,142',
+                   cv.width/2,cv.height/2,Math.max(1,Math.round(2*dp)),1);
+        const s=document.createElement('span');
+        s.textContent=name;
+        cell.appendChild(cv); cell.appendChild(s);
+        g.appendChild(cell);
+      }
+      box.appendChild(g);
+    }
+    if(sec.note){
+      const n=document.createElement('div');
+      n.className='lg-t'; n.style.marginTop='10px';
+      n.innerHTML=sec.note;
+      box.appendChild(n);
+    }
+    cols[0].appendChild(box);   // najpierw wszystkie w jednej — po to, żeby je zmierzyć
+    boxes.push(box);
+  }
+  // Kolejka do najkrótszej kolumny. Szerokość kolumn jest już ustalona (flex:1 1 0),
+  // więc wysokości zmierzone w kolumnie 0 są prawdziwe także po przeniesieniu.
+  const hs=boxes.map(b=>b.offsetHeight);
+  const fill=new Array(n).fill(0);
+  boxes.forEach((b,i)=>{
+    let k=0;
+    for(let j=1;j<n;j++) if(fill[j]<fill[k]) k=j;
+    cols[k].appendChild(b);
+    fill[k]+=hs[i]+16;
+  });
+}
+function showPauseTab(which){
+  const leg=which==='legend';
+  $('pz-settings').classList.toggle('off',leg);
+  $('pz-legend').classList.toggle('on',leg);
+  $('pz-tab-set').classList.toggle('on',!leg);
+  $('pz-tab-leg').classList.toggle('on',leg);
+  if(leg) renderLegend();
+}
+$('pz-tab-set').onclick=()=>showPauseTab('settings');
+$('pz-tab-leg').onclick=()=>showPauseTab('legend');
+
+function syncSettingsUI(){
+  const s=G.settings;
+  $('set-vol').value=s.vol;   $('rv-vol').textContent=s.vol;
+  $('set-ping').value=s.ping; $('rv-ping').textContent=s.ping;
+  $('set-amb').value=s.amb;   $('rv-amb').textContent=s.amb;
+  $('set-sens').value=s.sens; $('rv-sens').textContent=s.sens+'%';
+  setTgl($('set-retro'), s.retro);
+  setTgl($('set-fs'), !!document.fullscreenElement);
+}
+function setTgl(el,on){ el.classList.toggle('on',on); el.setAttribute('aria-checked',on?'true':'false'); }
+
+['vol','ping','amb'].forEach(k=>{
+  $('set-'+k).oninput=e=>{
+    G.settings[k]=+e.target.value;
+    $('rv-'+k).textContent=G.settings[k];
+    audioKick(); applyAudio();
+  };
+});
+$('set-sens').oninput=e=>{
+  G.settings.sens=+e.target.value;
+  $('rv-sens').textContent=G.settings.sens+'%';
+};
+$('set-retro').onclick=()=>setRetro(!G.settings.retro,false);
+$('set-fs').onclick=()=>{
+  if(document.fullscreenElement) document.exitFullscreen();
+  else document.documentElement.requestFullscreen()
+    .catch(()=>toast('PRZEGLĄDARKA ODMÓWIŁA PEŁNEGO EKRANU',true));
+};
+addEventListener('fullscreenchange',()=>{ syncSettingsUI(); sizeCanvases(); });
+
+$('pz-resume').onclick=closePause;
+$('pz-abort').onclick=()=>{
+  const wasRunning=G.running;
+  closePause();
+  if(wasRunning) endDive(false,'DIVE ABORTED','Nurkowanie przerwane na żądanie operatora. Ładunek utracony.');
+};
+$('gear-btn').onclick=togglePause;
+$('gear-btn').onkeydown=e=>{ if(e.key==='Enter'||e.key===' '){ e.preventDefault(); togglePause(); } };
+
+/* reset is destructive and there is no save yet — make it a two-step */
+let resetArmed=null;
+function resetConfirm(){
+  if(resetArmed){ clearTimeout(resetArmed); resetArmed=null; }
+  $('pz-reset').textContent='RESET POSTĘPÓW';
+}
+$('pz-reset').onclick=()=>{
+  if(!resetArmed){
+    $('pz-reset').textContent='NA PEWNO? KLIKNIJ PONOWNIE';
+    resetArmed=setTimeout(resetConfirm,4000);
+    return;
+  }
+  resetConfirm();
+  G.stats=DEFAULT_STATS();   // drops upg/sys too — they lazily rebuild at 100%
+  G.cargo=[];
+  renderShop(); renderLogbook(); renderVessel(); renderPauseStats();
+  toast('POSTĘPY WYZEROWANE — KREDYTY, ULEPSZENIA I STAN SYSTEMÓW');
+};
+
+/* ---------------- BOOT ---------------- */
+renderRoutes();
+sizeCanvases();
+setupMission(MISSIONS[0]);
+requestAnimationFrame(frame);
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+{
+  "name": "blackwater-dock",
+  "version": "0.5.0",
+  "description": "Deep-sea submarine navigation game — single-file HTML5 prototype",
+  "scripts": {
+    "start": "npx serve .",
+    "test": "node test/smoke.test.js"
+  },
+  "devDependencies": {
+    "playwright": "^1.62.1"
+  }
+}

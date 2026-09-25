@@ -1,0 +1,116 @@
+<!DOCTYPE html>
+<html lang="pl">
+<head>
+<meta charset="UTF-8">
+<title>BLACKWATER DOCK — makieta: fala echa + profil dna</title>
+<style>
+  body{margin:0;background:#060c10;color:#c8dbe2;font-family:'Barlow Condensed','Arial Narrow',Arial,sans-serif;letter-spacing:.06em;padding:26px}
+  h1{font-size:22px;letter-spacing:.14em;color:#eef8fa;margin:0 0 4px}
+  .sub{font-size:13px;color:#5f7d89;letter-spacing:.16em;margin-bottom:20px}
+  .row{display:flex;gap:20px;flex-wrap:wrap}
+  .panel{border:1px solid #1d3240;background:#050b0f;position:relative;box-shadow:inset 0 0 40px rgba(0,20,28,.8)}
+  .cap{font-size:12px;color:#5f7d89;letter-spacing:.18em;padding:10px 2px;max-width:560px;line-height:1.7}
+  .cap b{color:#59d6e2;font-weight:600}
+  .tag{position:absolute;top:10px;left:12px;font-size:12px;color:#59d6e2;letter-spacing:.2em}
+  .note{position:absolute;font-size:11px;color:#e8a33c;letter-spacing:.1em}
+</style>
+</head>
+<body>
+<h1>MAKIETA — SONAR ECHO PULSE + DEPTH PROFILE</h1>
+<div class="sub">PROPOZYCJA 2 NOWYCH INSTRUMENTÓW · BLACKWATER DOCK</div>
+<div class="row">
+
+  <!-- ============ PANEL 1: ECHO PULSE ============ -->
+  <div>
+    <div class="panel" style="width:560px;height:420px">
+      <div class="tag">A · ECHO PULSE — PING ODSŁANIA PRZESZKODY</div>
+      <svg width="560" height="420" viewBox="0 0 560 420">
+        <!-- ciemna strefa nieznana -->
+        <rect width="560" height="420" fill="#050b0f"/>
+        <!-- warstwice ledwo widoczne poza falą -->
+        <g stroke="#60c4d6" stroke-opacity="0.05" fill="none">
+          <ellipse cx="120" cy="300" rx="80" ry="46"/><ellipse cx="120" cy="300" rx="55" ry="30"/>
+          <ellipse cx="470" cy="120" rx="90" ry="50"/><ellipse cx="470" cy="120" rx="60" ry="32"/>
+        </g>
+        <!-- FALA: pierścień pingu rozchodzący się od łodzi -->
+        <circle cx="280" cy="210" r="150" fill="none" stroke="#59d6e2" stroke-opacity="0.85" stroke-width="2.5"/>
+        <circle cx="280" cy="210" r="138" fill="none" stroke="#59d6e2" stroke-opacity="0.35" stroke-width="6"/>
+        <circle cx="280" cy="210" r="120" fill="none" stroke="#59d6e2" stroke-opacity="0.14" stroke-width="14"/>
+        <!-- wnętrze fali: teren JUŻ odsłonięty, jaśniejszy -->
+        <g stroke="#60c4d6" stroke-opacity="0.28" fill="none">
+          <ellipse cx="230" cy="280" rx="70" ry="38"/><ellipse cx="230" cy="280" rx="45" ry="22"/>
+          <ellipse cx="340" cy="150" rx="60" ry="34"/>
+        </g>
+        <!-- echo przeszkody: rozbłysk tam, gdzie fala właśnie przeszła -->
+        <g transform="translate(390,150)">
+          <rect x="-9" y="-9" width="18" height="18" transform="rotate(45)" fill="none" stroke="#ff6a3c" stroke-width="2"/>
+          <circle r="20" fill="none" stroke="#ff6a3c" stroke-opacity="0.55"/>
+          <circle r="30" fill="none" stroke="#ff6a3c" stroke-opacity="0.25"/>
+          <text x="26" y="-8" fill="#ff8a5c" font-size="11" letter-spacing="1">ECHO · KONTENER</text>
+          <text x="26" y="6" fill="#ff8a5c" font-size="10" opacity="0.7">160 m · ZANIKA ZA 4 s</text>
+        </g>
+        <!-- stare, blednące echo (przeszkoda wykryta 2 pingi temu) -->
+        <g transform="translate(170,120)" opacity="0.35">
+          <rect x="-8" y="-8" width="16" height="16" transform="rotate(45)" fill="none" stroke="#ff6a3c" stroke-width="1.5"/>
+          <text x="20" y="4" fill="#ff8a5c" font-size="10">OSTATNIA ZNANA POZYCJA</text>
+        </g>
+        <!-- łódź -->
+        <circle cx="280" cy="210" r="24" fill="none" stroke="#78e6f0" stroke-opacity="0.5"/>
+        <path d="M280 194 l7 12 v14 l-4 5 h-6 l-4 -5 v-14 z" fill="#9be8f0"/>
+        <text x="20" y="400" fill="#5f7d89" font-size="11" letter-spacing="2">POZA FALĄ: CIEMNOŚĆ · SILNIEJSZY PING (AKTYWNY SONAR) = WIĘKSZY ZASIĘG, ALE WIĘKSZY POBÓR BATERII</text>
+      </svg>
+    </div>
+    <div class="cap"><b>A · ECHO PULSE.</b> Przeszkody nie są widoczne cały czas — dopiero przechodząca fala pingu je „zapala”. Echo świeci przez kilka sekund i blednie, a obiekt, który dryfuje, zostawia tylko „ostatnią znaną pozycję”. Tryb ACTIVE pinguje mocniej i dalej, PASSIVE tylko nasłuchuje (krótki zasięg, zero poboru baterii) — silent running wreszcie ma znaczenie taktyczne.</div>
+  </div>
+
+  <!-- ============ PANEL 2: DEPTH PROFILE ============ -->
+  <div>
+    <div class="panel" style="width:560px;height:420px">
+      <div class="tag">B · DEPTH PROFILE — PRZEKRÓJ DNA PRZED DZIOBEM</div>
+      <svg width="560" height="420" viewBox="0 0 560 420">
+        <rect width="560" height="420" fill="#050b0f"/>
+        <!-- siatka głębokości -->
+        <g stroke="#16242e" stroke-width="1">
+          <line x1="50" y1="80" x2="540" y2="80"/><line x1="50" y1="150" x2="540" y2="150"/>
+          <line x1="50" y1="220" x2="540" y2="220"/><line x1="50" y1="290" x2="540" y2="290"/>
+          <line x1="50" y1="360" x2="540" y2="360"/>
+        </g>
+        <g fill="#5f7d89" font-size="11">
+          <text x="14" y="84">100</text><text x="14" y="154">200</text>
+          <text x="14" y="224">300</text><text x="14" y="294">400</text><text x="14" y="364">m</text>
+        </g>
+        <g fill="#5f7d89" font-size="11">
+          <text x="60" y="404">0 m</text><text x="240" y="404">500 m</text><text x="440" y="404">1000 m PRZED DZIOBEM</text>
+        </g>
+        <!-- sylwetka dna (obszar wypełniony) -->
+        <path d="M50 330 L120 320 L180 340 L240 300 L300 250 L340 190 L370 185 L400 230 L460 280 L540 260 L540 420 L50 420 Z"
+              fill="#0c1e28"/>
+        <path d="M50 330 L120 320 L180 340 L240 300 L300 250 L340 190 L370 185 L400 230 L460 280 L540 260"
+              fill="none" stroke="#59d6e2" stroke-opacity="0.55" stroke-width="2"/>
+        <!-- strefa kolizji: grzbiet wyżej niż aktualna głębokość -->
+        <path d="M300 250 L340 190 L370 185 L400 230" fill="none" stroke="#ff6a3c" stroke-width="3"/>
+        <rect x="300" y="120" width="100" height="18" fill="rgba(255,106,60,0.12)"/>
+        <text x="305" y="133" fill="#ff8a5c" font-size="11" letter-spacing="1">⚠ GRZBIET · KOLIZJA ZA 01:12</text>
+        <!-- linia aktualnej głębokości łodzi -->
+        <line x1="50" y1="215" x2="540" y2="215" stroke="#e8a33c" stroke-dasharray="6 5" stroke-opacity="0.8"/>
+        <text x="452" y="209" fill="#e8a33c" font-size="11">TWOJA GŁĘBOKOŚĆ 293 m</text>
+        <!-- łódź na lewej krawędzi -->
+        <path d="M50 215 l16 -6 v12 z" fill="#9be8f0"/>
+        <circle cx="50" cy="215" r="10" fill="none" stroke="#78e6f0" stroke-opacity="0.5"/>
+        <!-- przeszkoda w toni -->
+        <g transform="translate(210,160)">
+          <rect x="-7" y="-7" width="14" height="14" transform="rotate(45)" fill="none" stroke="#ff6a3c" stroke-width="2"/>
+          <text x="14" y="4" fill="#ff8a5c" font-size="10">KONTENER · 420 m</text>
+        </g>
+        <!-- bezpieczny korytarz -->
+        <rect x="50" y="228" width="250" height="34" fill="rgba(62,207,142,0.07)"/>
+        <text x="58" y="250" fill="#3ecf8e" font-size="11" letter-spacing="1">BEZPIECZNY KORYTARZ 300–350 m</text>
+        <text x="20" y="30" fill="#5f7d89" font-size="11" letter-spacing="2">PRZEKRÓJ WZDŁUŻ KURSU · AKTUALIZOWANY KAŻDYM PINGIEM · JAKOŚĆ ZALEŻNA OD SONAR CONFIDENCE</text>
+      </svg>
+    </div>
+    <div class="cap"><b>B · DEPTH PROFILE.</b> Wąski pasek pod sonarem (albo przełączany klawiszem TAB): przekrój dna wzdłuż kursu na najbliższy 1 km. Widzisz grzbiet, w który zaraz uderzysz, przeszkody w toni na ich głębokości i zielony bezpieczny korytarz. To domyka pętlę z balastem — wreszcie jest powód, żeby aktywnie grać głębokością, nurkować pod grzbiety albo przeskakiwać je płycej kosztem ciśnienia kadłuba.</div>
+  </div>
+
+</div>
+</body>
+</html>
